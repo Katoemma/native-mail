@@ -19,6 +19,12 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+
+definePageMeta({
+  middleware: [
+    'auth',
+  ],
+})
 </script>
 
 <template>
