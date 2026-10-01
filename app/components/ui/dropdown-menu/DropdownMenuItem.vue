@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { DropdownMenuItemProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
 import { reactiveOmit } from "@vueuse/core"
 import { DropdownMenuItem, useForwardProps } from "reka-ui"
 import { cn } from "@/lib/utils"
 
-const props = withDefaults(defineProps<DropdownMenuItemProps & {
+const props = withDefaults(defineProps<{
+  asChild?: boolean
+  disabled?: boolean
+  textValue?: string
   class?: HTMLAttributes["class"]
   inset?: boolean
   variant?: "default" | "destructive"

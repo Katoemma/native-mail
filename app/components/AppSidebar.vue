@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { SidebarProps } from '@/components/ui/sidebar'
 import { ArchiveX, Command, File, Inbox, Send, Trash2 } from "@lucide/vue"
 import { h, ref } from "vue"
 import NavUser from '@/components/NavUser.vue'
@@ -18,6 +17,14 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { Switch } from '@/components/ui/switch'
+import type { HTMLAttributes } from 'vue'
+
+interface SidebarProps {
+  side?: 'left' | 'right'
+  variant?: 'sidebar' | 'floating' | 'inset'
+  collapsible?: 'offcanvas' | 'icon' | 'none'
+  class?: HTMLAttributes['class']
+}
 
 const props = withDefaults(defineProps<SidebarProps>(), {
   collapsible: "icon",
