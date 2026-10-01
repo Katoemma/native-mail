@@ -9,6 +9,11 @@ export default defineNuxtConfig({
     plugins: [
       tailwindcss(),
     ],
+    vue: {
+      script: {
+        globalTypeFiles: [] // Bypasses the broken fs compilation step
+      }
+    }
   },
 
   modules: ["shadcn-nuxt", "@vueuse/nuxt"],
@@ -25,5 +30,5 @@ export default defineNuxtConfig({
      * @default "@/components/ui"
      */
     componentDir: '@/components/ui'
-  }
+  },
 });
