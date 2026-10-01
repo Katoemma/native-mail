@@ -11,19 +11,26 @@ export default defineNuxtConfig({
     ]
   },
 
-  modules: ["shadcn-nuxt", "@vueuse/nuxt"],
-   shadcn: {
-    /**
-     * Prefix for all the imported component.
-     * @default "Ui"
-     */
+  modules: ["shadcn-nuxt", "@vueuse/nuxt", "@pinia/nuxt"],
+
+  shadcn: {
     prefix: '',
-    /**
-     * Directory that the component lives in.
-     * Will respect the Nuxt aliases.
-     * @link https://nuxt.com/docs/api/nuxt-config#alias
-     * @default "@/components/ui"
-     */
     componentDir: '@/components/ui'
+  },
+
+  runtimeConfig: {
+    // Server-only — never exposed to the browser
+    jmapBaseUrl: process.env.JMAP_BASE_URL || 'https://mail.katoemma.website',
+    sessionSecret: process.env.SESSION_SECRET || 'dev-secret-change-in-production-32b',
+    // Public (safe to expose)
+    public: {
+      appName: 'Native Mail',
+    },
+  },
+
+  nitro: {
+    experimental: {
+      websocket: true,
+    },
   },
 });
