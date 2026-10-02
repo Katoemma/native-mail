@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import type { OAuthTokens } from '../../shared/types'
+import { createHmac } from 'node:crypto'
 
 // ---------------------------------------------------------------------------
 // Session shape — stored in the httpOnly cookie, never sent to the browser
@@ -19,7 +20,6 @@ const COOKIE_NAME = 'nm_session'
 // ---------------------------------------------------------------------------
 
 function simpleHmac(data: string, secret: string): string {
-  const { createHmac } = require('node:crypto')
   return createHmac('sha256', secret).update(data).digest('base64url')
 }
 
