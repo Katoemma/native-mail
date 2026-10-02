@@ -88,11 +88,14 @@ export async function createJmapClient(
       throw new JmapError('authenticationFailed', 'Access token expired and no refresh token available', undefined, 401)
     }
 
+    const { discoverOAuthMetadata } = await import('../stalwart/oauth')
+    const metadata = await discoverOAuthMetadata(config.jmapBaseUrl)
+
     const refreshed = await refreshAccessToken({
-      baseUrl:      config.jmapBaseUrl,
-      clientId:     config.oauthClientId,
-      clientSecret: config.oauthClientSecret,
-      refreshToken: tokens.refreshToken,
+      tokenEndpoint: metadata.token_endpoint,
+      clientId:      config.oauthClientId,
+      clientSecret:  config.oauthClientSecret,
+      refreshToken:  tokens.refreshToken,
     })
 
     activeToken = refreshed.accessToken

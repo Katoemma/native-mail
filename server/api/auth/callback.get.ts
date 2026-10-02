@@ -4,16 +4,16 @@
  * Step 2 of the OAuth flow.
  * Stalwart redirects the browser here after the user authenticates.
  *
- * This handler:
- *  1. Validates the state parameter (CSRF protection)
- *  2. Reads the PKCE verifier from the short-lived cookie
- *  3. Exchanges the authorization code for access + refresh tokens (server-side)
- *  4. Discovers the JMAP session to resolve accountId and display name
- *  5. Sets the session cookie (contains tokens — never sent to the browser as JSON)
- *  6. Redirects the browser to /mail/inbox
+ * 1. Validates the state parameter (CSRF protection)
+ * 2. Reads the PKCE verifier from the short-lived cookie
+ * 3. Discovers the Stalwart token endpoint via /.well-known/oauth-authorization-server
+ * 4. Exchanges the authorization code for tokens (server-side, never in browser)
+ * 5. Discovers the JMAP session → resolves accountId + display name via Identity/get
+ * 6. Sets the signed httpOnly session cookie
+ * 7. Redirects the browser to /mail/inbox
  */
-import { getQuery } from 'h3'
 import {
+  discoverOAuthMetadata,
   exchangeCodeForTokens,
 } from '../../services/stalwart/oauth'
 import { discoverJmapSession } from '../../services/jmap/session'
@@ -28,11 +28,11 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const query  = getQuery(event)
 
-  const code           = query.code  as string | undefined
-  const returnedState  = query.state as string | undefined
-  const errorParam     = query.error as string | undefined
+  const code          = query.code  as string | undefined
+  const returnedState = query.state as string | undefined
+  const errorParam    = query.error as string | undefined
 
-  // --- OAuth error from Stalwart (user denied, etc.) ---
+  // ── OAuth error returned by Stalwart (user denied, etc.) ─────────────────
   if (errorParam) {
     return sendRedirect(event, `/login?error=${encodeURIComponent(errorParam)}`, 302)
   }
@@ -41,47 +41,53 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing authorization code' })
   }
 
-  // --- CSRF: validate state ---
+  // ── CSRF: validate state ──────────────────────────────────────────────────
   const savedState = getCookie(event, STATE_COOKIE)
   if (!savedState || savedState !== returnedState) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid state parameter' })
+    throw createError({ statusCode: 400, statusMessage: 'Invalid state parameter — possible CSRF attempt' })
   }
 
-  // --- Read PKCE verifier ---
+  // ── PKCE verifier ─────────────────────────────────────────────────────────
   const codeVerifier = getCookie(event, PKCE_COOKIE)
   if (!codeVerifier) {
     throw createError({ statusCode: 400, statusMessage: 'Missing PKCE verifier' })
   }
 
-  // Clean up the short-lived cookies
-  deleteCookie(event, PKCE_COOKIE, { path: '/' })
+  // Clean up the short-lived cookies immediately
+  deleteCookie(event, PKCE_COOKIE,  { path: '/' })
   deleteCookie(event, STATE_COOKIE, { path: '/' })
 
-  // --- Exchange code for tokens (server-side only) ---
+  // ── Discover token endpoint ───────────────────────────────────────────────
+  // Stalwart token endpoint is /auth/token — we discover it rather than hard-code it.
+  const metadata = await discoverOAuthMetadata(config.jmapBaseUrl)
+
+  // ── Exchange code for tokens (server-side only) ───────────────────────────
   let tokens
   try {
     tokens = await exchangeCodeForTokens({
-      baseUrl:      config.jmapBaseUrl,
-      clientId:     config.oauthClientId,
-      clientSecret: config.oauthClientSecret,
-      redirectUri:  config.oauthRedirectUri,
+      tokenEndpoint: metadata.token_endpoint,
+      clientId:      config.oauthClientId,
+      clientSecret:  config.oauthClientSecret,
+      redirectUri:   config.oauthRedirectUri,
       code,
       codeVerifier,
     })
   }
-  catch {
-    throw createError({ statusCode: 401, statusMessage: 'Token exchange failed — invalid code or credentials' })
+  catch (err) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Token exchange failed — invalid code or client credentials',
+    })
   }
 
-  // --- Discover JMAP session to get accountId ---
-  // We need a temporary username key for caching; extract from token if possible,
-  // otherwise use a placeholder that gets updated after Identity/get.
+  // ── Resolve user identity via JMAP ────────────────────────────────────────
   let username    = 'unknown'
   let displayName = ''
   let email       = ''
 
   try {
-    const jmapSession = await discoverJmapSession(tokens.accessToken, username)
+    // Use the access token for JMAP session discovery
+    const jmapSession = await discoverJmapSession(tokens.accessToken, '_callback_')
     const client      = new JmapClient(jmapSession.apiUrl, tokens.accessToken)
 
     const response = await client.request([
@@ -92,15 +98,19 @@ export default defineEventHandler(async (event) => {
 
     if (identity) {
       username    = identity.email
-      displayName = identity.name  || identity.email
+      displayName = identity.name || identity.email
       email       = identity.email
+
+      // Now that we have the real username, move the cached session to the right key
+      await discoverJmapSession(tokens.accessToken, username)
     }
   }
   catch {
-    // Non-fatal — proceed with minimal session data
+    // Non-fatal — the user is authenticated, we just lack display info
   }
 
-  // --- Set session cookie (httpOnly, signed, no tokens in browser) ---
+  // ── Set session cookie ────────────────────────────────────────────────────
+  // httpOnly + signed — tokens never appear in browser JS
   setSessionCookie(event, { username, displayName, email, tokens }, config.sessionSecret)
 
   return sendRedirect(event, '/mail/inbox', 302)
