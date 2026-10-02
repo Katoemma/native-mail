@@ -11,17 +11,21 @@ const route          = useRoute()
 const router         = useRouter()
 const mailStore      = useMailStore()
 const mailboxesStore = useMailboxesStore()
+const threadStore    = useThreadStore()
 const composer       = useComposerStore()
 
 const mailboxSlug = computed(() => route.params.mailbox as string)
 const emailId     = computed(() => route.params.id as string)
 
-// Determine if we should show thread view
-// A thread has more than 1 message — check after the email loads
-const email         = computed(() => mailStore.emails[emailId.value] ?? null)
-const showThread    = computed(() => {
-  const threadStore = useThreadStore()
-  const thread = threadStore.threads[email.value?.threadId ?? '']
+// Email from store (may not be loaded yet — MailViewer handles its own fetch)
+const email = computed(() => mailStore.emails[emailId.value] ?? null)
+
+// Show thread view only if the thread is already loaded AND has >1 messages.
+// MailViewer will load the email; we check thread after it's available.
+const showThread = computed(() => {
+  const threadId = email.value?.threadId
+  if (!threadId) return false
+  const thread = threadStore.threads[threadId]
   return thread ? thread.emailIds.length > 1 : false
 })
 

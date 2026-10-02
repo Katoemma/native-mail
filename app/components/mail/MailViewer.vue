@@ -18,16 +18,26 @@ const mailStore = useMailStore()
 const mailboxesStore = useMailboxesStore()
 
 const email = computed<MailMessageFull | null>(() => mailStore.fullEmails[props.emailId] ?? null)
-const loading = computed(() => mailStore.loadingEmail)
 const error = computed(() => mailStore.emailError)
 
-// Fetch on mount, auto mark-read
-onMounted(async () => {
-  await mailStore.fetchOne(props.emailId)
-  const e = mailStore.fullEmails[props.emailId]
+// Local fetch state — starts true so we never flash "Select an email"
+const isFetching = ref(true)
+
+// Fetch on mount and whenever emailId changes, auto mark-read
+async function loadEmail(id: string) {
+  isFetching.value = true
+  await mailStore.fetchOne(id)
+  const e = mailStore.fullEmails[id]
   if (e && !e.isRead) {
-    await mailStore.markRead(props.emailId, true)
+    await mailStore.markRead(id, true)
   }
+  isFetching.value = false
+}
+
+onMounted(() => loadEmail(props.emailId))
+
+watch(() => props.emailId, (id) => {
+  if (id) loadEmail(id)
 })
 
 // ---- Actions ----
@@ -106,7 +116,7 @@ const showRaw = ref(false)
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex-1 flex items-center justify-center">
+    <div v-if="isFetching" class="flex-1 flex items-center justify-center">
       <div class="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
 
