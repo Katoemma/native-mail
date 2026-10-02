@@ -1,4 +1,9 @@
 <script setup lang="ts">
+definePageMeta({
+  layout: 'sidebar-layout',
+  middleware: ['auth'],
+})
+
 import MailList from '@/components/mail/MailList.vue'
 import MailViewer from '@/components/mail/MailViewer.vue'
 import MailThread from '@/components/mail/MailThread.vue'
