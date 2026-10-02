@@ -1,30 +1,19 @@
 import { getSession, clearSessionCookie } from '../../utils/auth'
-import { revokeToken } from '../../services/stalwart/oauth'
 import { invalidateJmapSession } from '../../services/jmap/session'
 
+/**
+ * POST /api/auth/logout
+ *
+ * Stalwart does not expose a token revocation endpoint.
+ * Tokens expire naturally (access: 1h default, refresh: 30d default).
+ * Logout simply clears the server-side session cookie and evicts
+ * the cached JMAP session so the next login starts fresh.
+ */
 export default defineEventHandler(async (event) => {
-  const config  = useRuntimeConfig()
   const session = getSession(event)
 
   if (session) {
-    // Revoke both access and refresh tokens with Stalwart
-    if (session.tokens.accessToken) {
-      await revokeToken({
-        baseUrl:      config.jmapBaseUrl,
-        clientId:     config.oauthClientId,
-        clientSecret: config.oauthClientSecret,
-        token:        session.tokens.accessToken,
-      })
-    }
-    if (session.tokens.refreshToken) {
-      await revokeToken({
-        baseUrl:      config.jmapBaseUrl,
-        clientId:     config.oauthClientId,
-        clientSecret: config.oauthClientSecret,
-        token:        session.tokens.refreshToken,
-      })
-    }
-    // Evict cached JMAP session
+    // Evict the cached JMAP session for this user
     await invalidateJmapSession(session.username)
   }
 
