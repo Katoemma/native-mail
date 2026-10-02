@@ -104,7 +104,6 @@ export const useComposerStore = defineStore('composer', {
           textBody:          this.body,
           attachmentBlobIds: this.uploadedBlobIds,
           inReplyToEmailId:  this.inReplyToEmailId ?? undefined,
-          threadId:          this.threadId ?? undefined,
         }
 
         if (this.draftId) {

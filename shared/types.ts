@@ -149,7 +149,6 @@ export interface DraftPayload {
   htmlBody?: string
   attachmentBlobIds: string[]
   inReplyToEmailId?: string
-  threadId?: string
 }
 
 // ---------------------------------------------------------------------------

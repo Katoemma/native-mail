@@ -310,7 +310,6 @@ export async function createDraft(
     htmlBody?: string
     attachmentBlobIds?: string[]
     inReplyToEmailId?: string
-    threadId?: string
     references?: string
     inReplyTo?: string
   },
@@ -378,7 +377,8 @@ export async function createDraft(
 
   if (draft.references) emailCreate['header:References:asText'] = draft.references
   if (draft.inReplyTo)  emailCreate['header:In-Reply-To:asText'] = draft.inReplyTo
-  if (draft.threadId)   emailCreate.threadId = draft.threadId
+  // NOTE: do NOT set emailCreate.threadId — it is read-only in JMAP.
+  // Stalwart assigns the thread automatically by matching In-Reply-To / References headers.
 
   const response = await client.request([
     [
