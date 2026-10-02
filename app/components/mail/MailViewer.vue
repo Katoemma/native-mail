@@ -100,38 +100,39 @@ const showDetails = ref(false)
     <div class="flex items-center gap-1 px-3 py-2 border-b shrink-0 bg-background/80 backdrop-blur-sm">
       <!-- Back -->
       <button
-        class="inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-95"
+        class="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-95"
         aria-label="Back"
         @click="emit('back')"
       >
         <ArrowLeft class="size-4" />
+        <span>Back</span>
       </button>
 
       <div class="flex-1" />
 
       <template v-if="email">
-        <!-- Action group -->
+        <!-- Reply / Reply all / Forward -->
         <div class="flex items-center gap-0.5 rounded-lg border bg-muted/40 px-1 py-1">
           <button
-            class="inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
-            title="Reply"
+            class="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
             @click="emit('reply', emailId)"
           >
             <Reply class="size-3.5" />
+            <span>Reply</span>
           </button>
           <button
-            class="inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
-            title="Reply all"
+            class="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
             @click="emit('replyAll', emailId)"
           >
             <ReplyAll class="size-3.5" />
+            <span>Reply all</span>
           </button>
           <button
-            class="inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
-            title="Forward"
+            class="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
             @click="emit('forward', emailId)"
           >
             <Forward class="size-3.5" />
+            <span>Forward</span>
           </button>
         </div>
 
@@ -139,32 +140,32 @@ const showDetails = ref(false)
 
         <!-- Star -->
         <button
-          class="inline-flex items-center justify-center size-8 rounded-md transition-colors duration-150 active:scale-95"
+          class="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-sm transition-colors duration-150 active:scale-95"
           :class="email.isStarred
-            ? 'text-amber-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+            ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30'
             : 'text-muted-foreground hover:text-foreground hover:bg-muted'"
-          title="Star"
           @click="mailStore.markStarred(emailId, !email.isStarred)"
         >
           <Star :class="['size-4', email.isStarred && 'fill-amber-400']" />
+          <span>{{ email.isStarred ? 'Starred' : 'Star' }}</span>
         </button>
 
         <!-- Archive -->
         <button
-          class="inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-95"
-          title="Archive"
+          class="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-95"
           @click="archive"
         >
           <Archive class="size-4" />
+          <span>Archive</span>
         </button>
 
         <!-- Trash -->
         <button
-          class="inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150 active:scale-95"
-          title="Move to trash"
+          class="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150 active:scale-95"
           @click="trash"
         >
           <Trash2 class="size-4" />
+          <span>Trash</span>
         </button>
       </template>
     </div>
