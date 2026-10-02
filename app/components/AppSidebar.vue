@@ -39,7 +39,7 @@ const composer       = useComposerStore()
 const router         = useRouter()
 const route          = useRoute()
 
-const { setOpen } = useSidebar()
+const { setOpen, isMobile } = useSidebar()
 
 // ── Nav items — roles map to routes ──────────────────────────────────────────
 const navItems = [
@@ -77,12 +77,22 @@ async function navTo(role: string, url: string) {
   if (mb && !mailStore.idsByMailbox[mb.id]?.length) {
     await mailStore.fetchList(mb.id, true)
   }
-  setOpen(true)
+
+  // On mobile: close the sidebar so the SidebarInset (email list) fills the screen
+  // On desktop: open the second panel
+  if (isMobile.value) {
+    setOpen(false)
+  } else {
+    setOpen(true)
+  }
+
   router.push(url)
 }
 
 // ── Select an email from the panel ───────────────────────────────────────────
 function selectMail(emailId: string) {
+  // On mobile: close sidebar so the viewer fills the screen
+  if (isMobile.value) setOpen(false)
   router.push({ path: `/mail/${activeRole.value}`, query: { id: emailId } })
 }
 
