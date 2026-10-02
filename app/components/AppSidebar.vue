@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ArchiveX, Command, File, Inbox, Send, Trash2 } from "@lucide/vue"
-import { h, ref } from "vue"
+import { ArchiveX, File, Inbox, Send, Trash2, PenSquare, Star } from '@lucide/vue'
+import { h } from 'vue'
 import NavUser from '@/components/NavUser.vue'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import {
   Sidebar,
   SidebarContent,
@@ -10,7 +11,6 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
-  SidebarInput,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/sidebar'
 import { Switch } from '@/components/ui/switch'
 import type { HTMLAttributes } from 'vue'
+import type { MailboxRole } from '../../shared/types'
 
 interface SidebarProps {
   side?: 'left' | 'right'
@@ -27,135 +28,90 @@ interface SidebarProps {
 }
 
 const props = withDefaults(defineProps<SidebarProps>(), {
-  collapsible: "icon",
+  collapsible: 'icon',
 })
 
-// This is sample data
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "Inbox",
-      url: "#",
-      icon: Inbox,
-      isActive: true,
-    },
-    {
-      title: "Drafts",
-      url: "#",
-      icon: File,
-      isActive: false,
-    },
-    {
-      title: "Sent",
-      url: "#",
-      icon: Send,
-      isActive: false,
-    },
-    {
-      title: "Junk",
-      url: "#",
-      icon: ArchiveX,
-      isActive: false,
-    },
-    {
-      title: "Trash",
-      url: "#",
-      icon: Trash2,
-      isActive: false,
-    },
-  ],
-  mails: [
-    {
-      name: "William Smith",
-      email: "williamsmith@example.com",
-      subject: "Meeting Tomorrow",
-      date: "09:34 AM",
-      teaser:
-        "Hi team, just a reminder about our meeting tomorrow at 10 AM.\nPlease come prepared with your project updates.",
-    },
-    {
-      name: "Alice Smith",
-      email: "alicesmith@example.com",
-      subject: "Re: Project Update",
-      date: "Yesterday",
-      teaser:
-        "Thanks for the update. The progress looks great so far.\nLet's schedule a call to discuss the next steps.",
-    },
-    {
-      name: "Bob Johnson",
-      email: "bobjohnson@example.com",
-      subject: "Weekend Plans",
-      date: "2 days ago",
-      teaser:
-        "Hey everyone! I'm thinking of organizing a team outing this weekend.\nWould you be interested in a hiking trip or a beach day?",
-    },
-    {
-      name: "Emily Davis",
-      email: "emilydavis@example.com",
-      subject: "Re: Question about Budget",
-      date: "2 days ago",
-      teaser:
-        "I've reviewed the budget numbers you sent over.\nCan we set up a quick call to discuss some potential adjustments?",
-    },
-    {
-      name: "Michael Wilson",
-      email: "michaelwilson@example.com",
-      subject: "Important Announcement",
-      date: "1 week ago",
-      teaser:
-        "Please join us for an all-hands meeting this Friday at 3 PM.\nWe have some exciting news to share about the company's future.",
-    },
-    {
-      name: "Sarah Brown",
-      email: "sarahbrown@example.com",
-      subject: "Re: Feedback on Proposal",
-      date: "1 week ago",
-      teaser:
-        "Thank you for sending over the proposal. I've reviewed it and have some thoughts.\nCould we schedule a meeting to discuss my feedback in detail?",
-    },
-    {
-      name: "David Lee",
-      email: "davidlee@example.com",
-      subject: "New Project Idea",
-      date: "1 week ago",
-      teaser:
-        "I've been brainstorming and came up with an interesting project concept.\nDo you have time this week to discuss its potential impact and feasibility?",
-    },
-    {
-      name: "Olivia Wilson",
-      email: "oliviawilson@example.com",
-      subject: "Vacation Plans",
-      date: "1 week ago",
-      teaser:
-        "Just a heads up that I'll be taking a two-week vacation next month.\nI'll make sure all my projects are up to date before I leave.",
-    },
-    {
-      name: "James Martin",
-      email: "jamesmartin@example.com",
-      subject: "Re: Conference Registration",
-      date: "1 week ago",
-      teaser:
-        "I've completed the registration for the upcoming tech conference.\nLet me know if you need any additional information from my end.",
-    },
-    {
-      name: "Sophia White",
-      email: "sophiawhite@example.com",
-      subject: "Team Dinner",
-      date: "1 week ago",
-      teaser:
-        "To celebrate our recent project success, I'd like to organize a team dinner.\nAre you available next Friday evening? Please let me know your preferences.",
-    },
-  ],
+// ── Stores ────────────────────────────────────────────────────────────────────
+const mailboxesStore = useMailboxesStore()
+const mailStore      = useMailStore()
+const sessionStore   = useSessionStore()
+const composer       = useComposerStore()
+const router         = useRouter()
+const route          = useRoute()
+
+const { setOpen } = useSidebar()
+
+// ── Nav items — roles map to routes ──────────────────────────────────────────
+const navItems = [
+  { title: 'Inbox',  role: 'inbox'  as MailboxRole, icon: Inbox,   url: '/mail/inbox'  },
+  { title: 'Drafts', role: 'drafts' as MailboxRole, icon: File,    url: '/mail/drafts' },
+  { title: 'Sent',   role: 'sent'   as MailboxRole, icon: Send,    url: '/mail/sent'   },
+  { title: 'Junk',   role: 'junk'   as MailboxRole, icon: ArchiveX,url: '/mail/junk'   },
+  { title: 'Trash',  role: 'trash'  as MailboxRole, icon: Trash2,  url: '/mail/trash'  },
+]
+
+// Active item derived from current route
+const activeRole = computed(() => route.params.mailbox as string ?? 'inbox')
+
+// ── Second panel — mail list for the active mailbox ───────────────────────────
+const activeMailbox = computed(() =>
+  mailboxesStore.list.find(m => m.role === activeRole.value || m.id === activeRole.value) ?? null,
+)
+
+// Unread filter toggle
+const showUnreadOnly = ref(false)
+
+// Emails shown in the second panel
+const panelEmails = computed(() => {
+  const ids = mailStore.idsByMailbox[activeMailbox.value?.id ?? ''] ?? []
+  const all = ids.map(id => mailStore.emails[id]).filter(Boolean)
+  return showUnreadOnly.value ? all.filter(e => !e.isRead) : all
+})
+
+const panelLoading = computed(() => mailStore.loadingList)
+
+// ── Navigation click ─────────────────────────────────────────────────────────
+async function navTo(role: string, url: string) {
+  // Load emails for this mailbox if not yet loaded
+  const mb = mailboxesStore.list.find(m => m.role === role)
+  if (mb && !mailStore.idsByMailbox[mb.id]?.length) {
+    await mailStore.fetchList(mb.id, true)
+  }
+  setOpen(true)
+  router.push(url)
 }
 
-const activeItem = ref(data.navMain[0]!)
-const mails = ref(data.mails)
-const { setOpen } = useSidebar()
+// ── Select an email from the panel ───────────────────────────────────────────
+function selectMail(emailId: string) {
+  router.push(`/mail/${activeRole.value}/${emailId}`)
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+const searchQuery = ref('')
+function onSearch(e: Event) {
+  const q = (e.target as HTMLInputElement).value.trim()
+  if (q) router.push(`/mail/search?q=${encodeURIComponent(q)}`)
+}
+
+// ── User ──────────────────────────────────────────────────────────────────────
+const user = computed(() => ({
+  name:   sessionStore.displayName ?? sessionStore.username ?? '?',
+  email:  sessionStore.email ?? '',
+  avatar: '',
+}))
+
+// ── Format date ───────────────────────────────────────────────────────────────
+function formatDate(iso: string | null): string {
+  if (!iso) return ''
+  const d   = new Date(iso)
+  const now = new Date()
+  const diff = now.getTime() - d.getTime()
+  if (diff < 86_400_000 && d.getDate() === now.getDate())
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (diff < 7 * 86_400_000)
+    return d.toLocaleDateString([], { weekday: 'short' })
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
 </script>
 
 <template>
@@ -163,9 +119,7 @@ const { setOpen } = useSidebar()
     class="overflow-hidden *:data-[sidebar=sidebar]:flex-row"
     v-bind="props"
   >
-    <!-- This is the first sidebar -->
-    <!-- We disable collapsible and adjust width to icon. -->
-    <!-- This will make the sidebar appear as icons. -->
+    <!-- ── First sidebar: icon strip ────────────────────────────────────── -->
     <Sidebar
       collapsible="none"
       class="w-[calc(var(--sidebar-width-icon)+1px)]! border-r"
@@ -174,82 +128,128 @@ const { setOpen } = useSidebar()
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" as-child class="md:h-8 md:p-0">
-              <a href="#">
+              <button @click="composer.openCompose()">
                 <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Command class="size-4" />
+                  <PenSquare class="size-4" />
                 </div>
                 <div class="grid flex-1 text-left text-sm leading-tight">
-                  <span class="truncate font-medium">Acme Inc</span>
-                  <span class="truncate text-xs">Enterprise</span>
+                  <span class="truncate font-medium">Compose</span>
                 </div>
-              </a>
+              </button>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent class="px-1.5 md:px-0">
             <SidebarMenu>
-              <SidebarMenuItem v-for="item in data.navMain" :key="item.title">
+              <SidebarMenuItem v-for="item in navItems" :key="item.title">
                 <SidebarMenuButton
                   :tooltip="h('div', { hidden: false }, item.title)"
-                  :is-active="activeItem.title === item.title"
+                  :is-active="activeRole === item.role"
                   class="px-2.5 md:px-2"
-                  @click="() => {
-                    activeItem = item
-
-                    const mail = data.mails.sort(() => Math.random() - 0.5)
-                    mails = mail.slice(0, Math.max(5, Math.floor(Math.random() * 10) + 1))
-                    setOpen(true)
-                  }"
+                  @click="navTo(item.role!, item.url)"
                 >
                   <component :is="item.icon" />
                   <span>{{ item.title }}</span>
+                  <!-- Unread badge on icon -->
+                  <span
+                    v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
+                    class="ml-auto flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold"
+                  >
+                    {{ mailboxesStore.byRole(item.role!)?.unreadEmails }}
+                  </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
-        <NavUser :user="data.user" />
+        <NavUser :user="user" />
       </SidebarFooter>
     </Sidebar>
 
-    <!--  This is the second sidebar -->
-    <!--  We disable collapsible and let it fill remaining space -->
+    <!-- ── Second sidebar: mail list panel ──────────────────────────────── -->
     <Sidebar collapsible="none" class="hidden flex-1 md:flex">
       <SidebarHeader class="gap-3.5 border-b p-4">
         <div class="flex w-full items-center justify-between">
           <div class="text-base font-medium text-foreground">
-            {{ activeItem.title }}
+            {{ activeMailbox?.name ?? activeRole }}
           </div>
           <Label class="flex items-center gap-2 text-sm">
             <span>Unreads</span>
-            <Switch class="shadow-none" />
+            <Switch v-model:checked="showUnreadOnly" class="shadow-none" />
           </Label>
         </div>
-        <SidebarInput placeholder="Type to search..." />
+        <Input
+          v-model="searchQuery"
+          class="bg-background h-8 w-full shadow-none"
+          placeholder="Type to search..."
+          @keydown.enter="onSearch"
+        />
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup class="px-0">
           <SidebarGroupContent>
-            <a
-              v-for="mail in mails"
-              :key="mail.email"
-              href="#"
-              class="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight whitespace-nowrap last:border-b-0"
+            <!-- Loading skeletons -->
+            <template v-if="panelLoading && !panelEmails.length">
+              <div v-for="i in 6" :key="i" class="flex flex-col gap-2 border-b p-4">
+                <div class="flex gap-2">
+                  <div class="h-2.5 w-24 rounded bg-muted animate-pulse" />
+                  <div class="ml-auto h-2.5 w-10 rounded bg-muted animate-pulse" />
+                </div>
+                <div class="h-2.5 w-40 rounded bg-muted animate-pulse" />
+                <div class="h-2.5 w-56 rounded bg-muted animate-pulse" />
+              </div>
+            </template>
+
+            <!-- Empty state -->
+            <div
+              v-else-if="!panelLoading && !panelEmails.length"
+              class="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2"
+            >
+              <span class="text-3xl">📭</span>
+              <p class="text-xs">No messages</p>
+            </div>
+
+            <!-- Mail list -->
+            <button
+              v-for="mail in panelEmails"
+              :key="mail.id"
+              :class="[
+                'w-full text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight last:border-b-0 transition-colors',
+                !mail.isRead && 'bg-sidebar-accent/30 font-medium',
+                route.params.id === mail.id && 'bg-sidebar-accent text-sidebar-accent-foreground',
+              ]"
+              @click="selectMail(mail.id)"
             >
               <div class="flex w-full items-center gap-2">
-                <span>{{ mail.name }}</span>
-                <span class="ml-auto text-xs">{{ mail.date }}</span>
+                <!-- Unread dot -->
+                <span
+                  v-if="!mail.isRead"
+                  class="size-1.5 rounded-full bg-primary shrink-0"
+                />
+                <span class="truncate flex-1">
+                  {{ mail.from[0]?.name || mail.from[0]?.email || '(unknown)' }}
+                </span>
+                <Star
+                  v-if="mail.isStarred"
+                  class="size-3 fill-amber-400 text-amber-400 shrink-0"
+                />
+                <span class="ml-auto text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                  {{ formatDate(mail.receivedAt) }}
+                </span>
               </div>
-              <span class="font-medium">{{ mail.subject }}</span>
-              <span class="line-clamp-2 w-[260px] whitespace-break-spaces text-xs">
-                {{ mail.teaser }}
+              <span class="font-medium truncate w-full">{{ mail.subject }}</span>
+              <span class="line-clamp-2 w-[260px] whitespace-break-spaces text-xs text-muted-foreground font-normal">
+                {{ mail.preview }}
               </span>
-            </a>
+            </button>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

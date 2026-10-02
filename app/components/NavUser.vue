@@ -3,11 +3,8 @@ import {
   BadgeCheck,
   Bell,
   ChevronsUpDown,
-  CreditCard,
   LogOut,
-  Sparkles,
-} from "@lucide/vue"
-
+} from '@lucide/vue'
 import {
   Avatar,
   AvatarFallback,
@@ -38,6 +35,14 @@ const props = defineProps<{
 }>()
 
 const { isMobile } = useSidebar()
+const sessionStore = useSessionStore()
+
+// Initials for avatar fallback — first letter of first + last name
+const initials = computed(() => {
+  const parts = props.user.name.trim().split(' ')
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return props.user.name.slice(0, 2).toUpperCase()
+})
 </script>
 
 <template>
@@ -51,9 +56,7 @@ const { isMobile } = useSidebar()
           >
             <Avatar class="h-8 w-8 rounded-lg">
               <AvatarImage :src="user.avatar" :alt="user.name" />
-              <AvatarFallback class="rounded-lg">
-                CN
-              </AvatarFallback>
+              <AvatarFallback class="rounded-lg">{{ initials }}</AvatarFallback>
             </Avatar>
             <div class="grid flex-1 text-left text-sm leading-tight">
               <span class="truncate font-medium">{{ user.name }}</span>
@@ -62,51 +65,48 @@ const { isMobile } = useSidebar()
             <ChevronsUpDown class="ml-auto size-4" />
           </SidebarMenuButton>
         </DropdownMenuTrigger>
+
         <DropdownMenuContent
           class="w-(--reka-dropdown-menu-trigger-width) min-w-56 rounded-lg"
           :side="isMobile ? 'bottom' : 'right'"
           align="end"
           :side-offset="4"
         >
+          <!-- User identity -->
           <DropdownMenuLabel class="p-0 font-normal">
             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
               <Avatar class="h-8 w-8 rounded-lg">
                 <AvatarImage :src="user.avatar" :alt="user.name" />
-                <AvatarFallback class="rounded-lg">
-                  CN
-                </AvatarFallback>
+                <AvatarFallback class="rounded-lg">{{ initials }}</AvatarFallback>
               </Avatar>
               <div class="grid flex-1 text-left text-sm leading-tight">
                 <span class="truncate font-medium">{{ user.name }}</span>
-                <span class="truncate text-xs">{{ user.email }}</span>
+                <span class="truncate text-xs text-muted-foreground">{{ user.email }}</span>
               </div>
             </div>
           </DropdownMenuLabel>
+
           <DropdownMenuSeparator />
+
           <DropdownMenuGroup>
             <DropdownMenuItem>
-              <Sparkles />
-              Upgrade to Pro
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem>
-              <BadgeCheck />
+              <BadgeCheck class="size-4" />
               Account
             </DropdownMenuItem>
             <DropdownMenuItem>
-              <CreditCard />
-              Billing
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Bell />
+              <Bell class="size-4" />
               Notifications
             </DropdownMenuItem>
           </DropdownMenuGroup>
+
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
-            <LogOut />
+
+          <!-- Logout — calls sessionStore.logout() which clears cookie + redirects -->
+          <DropdownMenuItem
+            class="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+            @click="sessionStore.logout()"
+          >
+            <LogOut class="size-4" />
             Log out
           </DropdownMenuItem>
         </DropdownMenuContent>

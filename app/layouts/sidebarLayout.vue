@@ -41,7 +41,7 @@ const mailboxLabel = computed(() => {
   >
     <AppSidebar />
 
-    <SidebarInset>
+    <SidebarInset class="flex flex-col overflow-hidden h-svh">
       <!-- Sticky top header with sidebar trigger + breadcrumb -->
       <header class="bg-background sticky top-0 flex shrink-0 items-center gap-2 border-b p-4">
         <SidebarTrigger class="-ml-1" />
@@ -64,8 +64,8 @@ const mailboxLabel = computed(() => {
         </Breadcrumb>
       </header>
 
-      <!-- Page content injected here -->
-      <div class="flex flex-1 flex-col gap-4 p-4">
+      <!-- Page content injected here — full height, no padding, for the email viewer -->
+      <div class="flex flex-1 overflow-hidden">
         <slot />
       </div>
     </SidebarInset>
