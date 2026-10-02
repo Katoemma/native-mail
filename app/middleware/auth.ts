@@ -1,25 +1,11 @@
-export default defineNuxtRouteMiddleware(async (to) => {
-  // Login and OAuth callback pages are always accessible
+export default defineNuxtRouteMiddleware((to) => {
+  // OAuth callback and login are always accessible
   if (to.path === '/login' || to.path.startsWith('/api/')) return
 
   const sessionStore = useSessionStore()
 
-  // Wait for the plugin's fetchSession() to complete.
-  // On first load the plugin runs before navigation so this resolves instantly.
-  // On subsequent navigations initialized is already true.
-  if (!sessionStore.initialized) {
-    await new Promise<void>((resolve) => {
-      const stop = watch(
-        () => sessionStore.initialized,
-        (ready) => {
-          if (ready) { stop(); resolve() }
-        },
-        { immediate: true },
-      )
-    })
-  }
-
-  // Now we have the real auth state — redirect if not logged in
+  // In SPA mode the session plugin runs before any navigation,
+  // so initialized is always true here. Guard anyway for safety.
   if (!sessionStore.loggedIn) {
     return navigateTo('/login')
   }

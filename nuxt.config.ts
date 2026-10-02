@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
+  ssr: false,   // SPA mode — no SSR flash, loading screen handles auth check
   css: ['~/assets/css/main.css'],
 
   vite: {
