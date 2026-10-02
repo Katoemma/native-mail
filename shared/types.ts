@@ -7,6 +7,18 @@
  */
 
 // ---------------------------------------------------------------------------
+// OAuth tokens — stored server-side in the session cookie, never in the browser
+// ---------------------------------------------------------------------------
+export interface OAuthTokens {
+  accessToken: string
+  refreshToken: string | null
+  /** Unix ms timestamp */
+  expiresAt: number
+  tokenType: string
+  scope: string
+}
+
+// ---------------------------------------------------------------------------
 // JMAP session (server-side only, never sent to the browser wholesale)
 // ---------------------------------------------------------------------------
 export interface JmapSession {

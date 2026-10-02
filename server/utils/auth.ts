@@ -1,20 +1,28 @@
 import type { H3Event } from 'h3'
+import type { OAuthTokens } from '../../shared/types'
 
+// ---------------------------------------------------------------------------
+// Session shape — stored in the httpOnly cookie, never sent to the browser
+// ---------------------------------------------------------------------------
 export interface SessionData {
   username: string
   displayName: string
   email: string
-  /** base64-encoded "username:password" — stays server-side only */
-  basicAuth: string
+  /** OAuth tokens — no password is ever stored */
+  tokens: OAuthTokens
 }
 
 const COOKIE_NAME = 'nm_session'
 
-/**
- * Encode a session payload as a simple signed token.
- * In production you'd use iron-session or similar; this is a
- * lightweight Base64+HMAC approach that avoids extra dependencies.
- */
+// ---------------------------------------------------------------------------
+// Signing helpers (HMAC-SHA256, no extra deps)
+// ---------------------------------------------------------------------------
+
+function simpleHmac(data: string, secret: string): string {
+  const { createHmac } = require('node:crypto')
+  return createHmac('sha256', secret).update(data).digest('base64url')
+}
+
 export function encodeSession(data: SessionData, secret: string): string {
   const payload = Buffer.from(JSON.stringify(data)).toString('base64url')
   const sig = simpleHmac(payload, secret)
@@ -33,12 +41,6 @@ export function decodeSession(token: string, secret: string): SessionData | null
   catch {
     return null
   }
-}
-
-/** Very lightweight HMAC-SHA256 substitute using Node's built-in crypto. */
-function simpleHmac(data: string, secret: string): string {
-  const { createHmac } = require('node:crypto')
-  return createHmac('sha256', secret).update(data).digest('base64url')
 }
 
 // ---------------------------------------------------------------------------
@@ -62,28 +64,35 @@ export function clearSessionCookie(event: H3Event) {
 
 /**
  * Reads and validates the session cookie.
- * Throws a 401 if missing or invalid.
+ * Throws 401 if missing, invalid, or token expired with no refresh token.
  */
 export function requireSession(event: H3Event): SessionData {
   const config = useRuntimeConfig()
-  const token = getCookie(event, COOKIE_NAME)
-  if (!token) {
+  const raw = getCookie(event, COOKIE_NAME)
+  if (!raw) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorised' })
   }
-  const session = decodeSession(token, config.sessionSecret)
+  const session = decodeSession(raw, config.sessionSecret)
   if (!session) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid session' })
   }
   return session
 }
 
-/**
- * Returns the session or null without throwing.
- * Useful for optional auth checks.
- */
+/** Returns the session or null without throwing. */
 export function getSession(event: H3Event): SessionData | null {
   const config = useRuntimeConfig()
-  const token = getCookie(event, COOKIE_NAME)
-  if (!token) return null
-  return decodeSession(token, config.sessionSecret)
+  const raw = getCookie(event, COOKIE_NAME)
+  if (!raw) return null
+  return decodeSession(raw, config.sessionSecret)
+}
+
+/**
+ * Updates just the token portion of an existing session cookie.
+ * Called after a successful token refresh.
+ */
+export function refreshSessionTokens(event: H3Event, tokens: OAuthTokens): void {
+  const config = useRuntimeConfig()
+  const session = requireSession(event)
+  setSessionCookie(event, { ...session, tokens }, config.sessionSecret)
 }
