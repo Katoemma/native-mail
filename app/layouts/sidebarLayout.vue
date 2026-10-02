@@ -19,17 +19,34 @@ import {
 const mailboxesStore = useMailboxesStore()
 const route = useRoute()
 
-// Fetch mailboxes once when the layout mounts
+// Start WebSocket sync at layout level — persists across page navigations
+const { wsStatus, setupFocusSync } = useSync()
 onMounted(async () => {
   await mailboxesStore.fetch()
+  setupFocusSync()
 })
 
-// Derive breadcrumb label from the current mailbox route param
 const mailboxLabel = computed(() => {
   const slug = (route.params.mailbox as string | undefined) ?? ''
   if (!slug) return 'Inbox'
   const mb = mailboxesStore.list.find(m => m.role === slug || m.id === slug)
   return mb?.name ?? slug.charAt(0).toUpperCase() + slug.slice(1)
+})
+
+// Connection indicator
+const wsIndicatorClass = computed(() => {
+  switch (wsStatus.value) {
+    case 'connected':    return 'bg-emerald-500'
+    case 'connecting':   return 'bg-amber-400 animate-pulse'
+    case 'disconnected': return 'bg-muted-foreground/40'
+  }
+})
+const wsTitle = computed(() => {
+  switch (wsStatus.value) {
+    case 'connected':    return 'Real-time sync active'
+    case 'connecting':   return 'Connecting…'
+    case 'disconnected': return 'Offline — changes may be delayed'
+  }
 })
 </script>
 
@@ -62,6 +79,16 @@ const mailboxLabel = computed(() => {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
+
+        <!-- WebSocket connection indicator -->
+        <div class="ml-auto flex items-center gap-1.5" :title="wsTitle">
+          <span
+            :class="['size-2 rounded-full shrink-0 transition-colors duration-500', wsIndicatorClass]"
+          />
+          <span class="hidden sm:inline text-xs text-muted-foreground">
+            {{ wsStatus === 'connected' ? 'Live' : wsStatus === 'connecting' ? 'Connecting…' : 'Offline' }}
+          </span>
+        </div>
       </header>
 
       <!-- Page content injected here — full height, no padding, for the email viewer -->

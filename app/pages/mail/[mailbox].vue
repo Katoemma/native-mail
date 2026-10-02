@@ -15,7 +15,6 @@ const threadStore    = useThreadStore()
 const composer       = useComposerStore()
 const route          = useRoute()
 const router         = useRouter()
-const { setupFocusSync } = useSync()
 
 const mailboxSlug = computed(() => route.params.mailbox as string)
 const selectedId  = computed(() => (route.query.id as string) ?? null)
@@ -33,8 +32,6 @@ watch(mailboxId, async (id) => {
     await mailStore.fetchList(id, true)
   }
 }, { immediate: true })
-
-onMounted(() => setupFocusSync())
 
 // Mobile email list
 const mobileEmails = computed(() => {
