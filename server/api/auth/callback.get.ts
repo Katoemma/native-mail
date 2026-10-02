@@ -42,13 +42,20 @@ export default defineEventHandler(async (event) => {
   }
 
   // ── CSRF: validate state ──────────────────────────────────────────────────
-  const savedState = getCookie(event, STATE_COOKIE)
+  const savedState   = getCookie(event, STATE_COOKIE)
+  const pkceVerifier = getCookie(event, PKCE_COOKIE)
+
+  // Debug: log all cookies received (remove after confirming flow works)
+  console.log('[callback] cookies received:', event.headers.get('cookie'))
+  console.log('[callback] savedState:', savedState, '| returnedState:', returnedState)
+  console.log('[callback] pkceVerifier present:', !!pkceVerifier)
+
   if (!savedState || savedState !== returnedState) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid state parameter — possible CSRF attempt' })
   }
 
   // ── PKCE verifier ─────────────────────────────────────────────────────────
-  const codeVerifier = getCookie(event, PKCE_COOKIE)
+  const codeVerifier = pkceVerifier
   if (!codeVerifier) {
     throw createError({ statusCode: 400, statusMessage: 'Missing PKCE verifier' })
   }
