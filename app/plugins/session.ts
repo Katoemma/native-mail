@@ -1,10 +1,12 @@
 /**
- * Runs on app mount (client-side only).
- * Rehydrates the Pinia session store from the server-side session cookie.
+ * Client-side plugin — runs before any page mounts.
+ * Fetches the session from the server cookie.
+ * Sets sessionStore.initialized = true when done (success or failure).
+ * app.vue watches initialized to hide the loading screen.
  */
 export default defineNuxtPlugin(async () => {
   const sessionStore = useSessionStore()
-  if (!sessionStore.loggedIn) {
+  if (!sessionStore.initialized) {
     await sessionStore.fetchSession()
   }
 })

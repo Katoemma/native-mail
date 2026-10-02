@@ -7,6 +7,8 @@ interface SessionState {
   loggedIn: boolean
   loading: boolean
   error: string | null
+  /** True once the first fetchSession() has completed, regardless of outcome */
+  initialized: boolean
 }
 
 export const useSessionStore = defineStore('session', {
@@ -17,6 +19,7 @@ export const useSessionStore = defineStore('session', {
     loggedIn: false,
     loading: false,
     error: null,
+    initialized: false,
   }),
 
   actions: {
@@ -51,7 +54,8 @@ export const useSessionStore = defineStore('session', {
         this.loggedIn = false
       }
       finally {
-        this.loading = false
+        this.loading      = false
+        this.initialized  = true
       }
     },
   },
