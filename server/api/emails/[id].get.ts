@@ -10,5 +10,12 @@ export default defineEventHandler(async (event): Promise<ApiEmailResponse> => {
   const jmapSession = await discoverJmapSession(session.tokens.accessToken, session.username)
   const client      = await createJmapClient(session.tokens, jmapSession.apiUrl, event)
   const email       = await getEmailFull(client, jmapSession.accountId, id, jmapSession)
+
+  // Temporary debug — remove after confirming body arrives
+  console.log('[email/get] id:', id)
+  console.log('[email/get] htmlBody length:', email.htmlBody?.length ?? 'null')
+  console.log('[email/get] textBody length:', email.textBody?.length ?? 'null')
+  console.log('[email/get] attachments:', email.attachments.length)
+
   return { email }
 })

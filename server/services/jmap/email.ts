@@ -34,6 +34,8 @@ interface JmapBodyPart {
   charset?: string
   disposition?: string
   cid?: string
+  language?: string[]
+  location?: string
   subParts?: JmapBodyPart[]
 }
 
@@ -91,15 +93,51 @@ function normaliseFull(
 ): MailMessageFull {
   const base = normaliseList(raw)
 
-  // Collect inline body values
+  // --- Body extraction ---
+  // JMAP body parts reference bodyValues via partId.
+  // Strategy:
+  //   1. Use textBody[0].partId / htmlBody[0].partId if present
+  //   2. Fall back to scanning all bodyValues for text/html content
+  //   3. Fall back to bodyStructure traversal
+
+  let textBody: string | null = null
+  let htmlBody: string | null = null
+
+  const bodyValues = raw.bodyValues ?? {}
+
+  // Primary: use the partId references from textBody / htmlBody arrays
   const textPartId = raw.textBody?.[0]?.partId
   const htmlPartId = raw.htmlBody?.[0]?.partId
-  const textBody = textPartId ? (raw.bodyValues?.[textPartId]?.value ?? null) : null
-  const htmlBody = htmlPartId ? (raw.bodyValues?.[htmlPartId]?.value ?? null) : null
 
-  // Attachments
+  if (textPartId && bodyValues[textPartId]?.value) {
+    textBody = bodyValues[textPartId].value
+  }
+  if (htmlPartId && bodyValues[htmlPartId]?.value) {
+    htmlBody = bodyValues[htmlPartId].value
+  }
+
+  // Fallback: scan all bodyValues — pick first text/plain and text/html
+  if (!textBody || !htmlBody) {
+    // Also check the body part types from textBody/htmlBody arrays
+    for (const part of [...(raw.textBody ?? []), ...(raw.htmlBody ?? [])]) {
+      const val = part.partId ? bodyValues[part.partId] : null
+      if (val?.value) {
+        if (!htmlBody && part.type === 'text/html') htmlBody = val.value
+        if (!textBody && part.type === 'text/plain') textBody = val.value
+      }
+    }
+  }
+
+  // Last resort: just grab whatever is in bodyValues
+  if (!textBody && !htmlBody) {
+    for (const [, val] of Object.entries(bodyValues)) {
+      if (val?.value && !textBody) textBody = val.value
+    }
+  }
+
+  // --- Attachments ---
   const attachments: MailAttachment[] = (raw.attachments ?? [])
-    .filter(p => p.blobId)
+    .filter(p => p.blobId && p.disposition !== 'inline')
     .map(p => ({
       blobId: p.blobId!,
       name: p.name ?? 'attachment',
@@ -108,7 +146,7 @@ function normaliseFull(
       downloadUrl: buildDownloadUrl(session, p.blobId!, p.name ?? 'attachment'),
     }))
 
-  // Header map
+  // --- Headers ---
   const headers: Record<string, string> = {}
   for (const h of raw.headers ?? []) {
     headers[h.name.toLowerCase()] = h.value.trim()
@@ -120,9 +158,9 @@ function normaliseFull(
     textBody,
     attachments,
     headers,
-    inReplyTo: headers['in-reply-to'] ?? null,
-    messageId: headers['message-id'] ?? null,
-    references: headers['references'] ?? null,
+    inReplyTo:  headers['in-reply-to']  ?? null,
+    messageId:  headers['message-id']   ?? null,
+    references: headers['references']   ?? null,
   }
 }
 
@@ -200,6 +238,14 @@ export async function getEmailFull(
   const args = client.getResponse<{ list: JmapEmailFull[] }>(response, 'email-full')
   const raw = args.list?.[0]
   if (!raw) throw new Error(`Email ${id} not found`)
+
+  // Temporary debug — log the raw JMAP body parts from Stalwart
+  console.log('[getEmailFull] raw.textBody:', JSON.stringify(raw.textBody))
+  console.log('[getEmailFull] raw.htmlBody:', JSON.stringify(raw.htmlBody))
+  console.log('[getEmailFull] raw.bodyStructure type:', raw.bodyStructure?.type)
+  console.log('[getEmailFull] raw.bodyValues keys:', Object.keys(raw.bodyValues ?? {}))
+  console.log('[getEmailFull] raw.attachments count:', raw.attachments?.length ?? 0)
+
   return normaliseFull(raw, session, accountId)
 }
 
