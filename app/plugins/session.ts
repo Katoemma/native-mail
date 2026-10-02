@@ -1,8 +1,7 @@
 /**
- * Client-side plugin — runs before any page mounts.
- * Fetches the session from the server cookie.
- * Sets sessionStore.initialized = true when done (success or failure).
- * app.vue watches initialized to hide the loading screen.
+ * Client-side plugin — this is the ONLY place fetchSession() is called.
+ * Runs before any route navigation. Sets initialized = true when done.
+ * The auth middleware reads initialized/loggedIn — never calls fetchSession itself.
  */
 export default defineNuxtPlugin(async () => {
   const sessionStore = useSessionStore()

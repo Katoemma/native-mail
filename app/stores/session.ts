@@ -54,8 +54,8 @@ export const useSessionStore = defineStore('session', {
         this.loggedIn = false
       }
       finally {
-        this.loading      = false
-        this.initialized  = true
+        this.loading     = false
+        this.initialized = true
       }
     },
   },

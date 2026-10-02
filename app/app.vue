@@ -3,7 +3,7 @@ const sessionStore = useSessionStore()
 
 // The session plugin awaits fetchSession() before the app mounts.
 // sessionStore.initialized flips to true when that completes.
-const appReady = computed(() => sessionStore.initialized)
+const appReady = computed(() => sessionStore.loggedIn)
 </script>
 
 <template>
