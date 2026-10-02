@@ -10,7 +10,7 @@ export interface UploadResult {
 }
 
 export async function uploadAttachment(
-  basicAuth: string,
+  accessToken: string,
   session: JmapSession,
   data: Buffer | Uint8Array,
   contentType: string,
@@ -25,7 +25,7 @@ export async function uploadAttachment(
   }>(uploadUrl, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${basicAuth}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': contentType,
       'X-JMAP-FileName': encodeURIComponent(name),
     },

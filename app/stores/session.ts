@@ -20,28 +20,13 @@ export const useSessionStore = defineStore('session', {
   }),
 
   actions: {
-    async login(username: string, password: string) {
-      this.loading = true
-      this.error = null
-      try {
-        const res = await $fetch<{ ok: boolean; displayName: string; email: string }>(
-          '/api/auth/login',
-          { method: 'POST', body: { username, password } },
-        )
-        this.username = username
-        this.displayName = res.displayName
-        this.email = res.email
-        this.loggedIn = true
-        return true
-      }
-      catch (err: unknown) {
-        const msg = (err as { data?: { statusMessage?: string } })?.data?.statusMessage
-        this.error = msg ?? 'Login failed'
-        return false
-      }
-      finally {
-        this.loading = false
-      }
+    /**
+     * Redirects the browser to the BFF OAuth authorize endpoint.
+     * The BFF generates PKCE + state, then redirects to Stalwart.
+     * No password ever touches Nuxt client code.
+     */
+    startOAuth() {
+      window.location.href = '/api/auth/authorize'
     },
 
     async logout() {
@@ -50,17 +35,23 @@ export const useSessionStore = defineStore('session', {
       await navigateTo('/login')
     },
 
-    /** Called on app boot to rehydrate from the session cookie. */
+    /** Rehydrates from the server-side session cookie on app boot. */
     async fetchSession() {
+      this.loading = true
       try {
-        const res = await $fetch<{ username: string; displayName: string; email: string }>('/api/session')
-        this.username = res.username
+        const res = await $fetch<{ username: string; displayName: string; email: string }>(
+          '/api/session',
+        )
+        this.username    = res.username
         this.displayName = res.displayName
-        this.email = res.email
-        this.loggedIn = true
+        this.email       = res.email
+        this.loggedIn    = true
       }
       catch {
         this.loggedIn = false
+      }
+      finally {
+        this.loading = false
       }
     },
   },
