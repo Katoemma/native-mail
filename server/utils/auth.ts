@@ -1,4 +1,4 @@
-import { H3Event, getCookie, createError } from 'h3'
+import type { H3Event } from 'h3'
 
 export interface SessionData {
   username: string

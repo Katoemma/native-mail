@@ -1,6 +1,5 @@
-import { clearSessionCookie } from '../../utils/auth'
+import { clearSessionCookie, getSession } from '../../utils/auth'
 import { invalidateJmapSession } from '../../services/jmap/session'
-import { getSession } from '../../utils/auth'
 
 export default defineEventHandler(async (event) => {
   const session = getSession(event)

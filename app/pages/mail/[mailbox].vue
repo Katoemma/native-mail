@@ -10,7 +10,6 @@ import MailThread from '@/components/mail/MailThread.vue'
 import { useSearch } from '@/composables/useSearch'
 import { useSync } from '@/composables/useSync'
 
-definePageMeta({ middleware: 'auth' })
 
 const route  = useRouter()
 const params = useRoute().params
