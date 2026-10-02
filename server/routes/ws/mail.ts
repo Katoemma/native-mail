@@ -1,43 +1,42 @@
 /**
  * WebSocket BFF proxy — /ws/mail
  *
- * The browser connects here (session cookie auth).
- * This handler connects to Stalwart's JMAP WebSocket on the server side
- * using the user's OAuth token, then relays StateChange push events
+ * Browser connects here (authenticated via session cookie).
+ * Server opens a connection to Stalwart's JMAP WebSocket using the
+ * user's OAuth Bearer token, then relays StateChange push events
  * back to the browser.
  *
- * Security boundary: credentials never leave the server.
- * The browser only receives normalised JSON events.
+ * Security boundary: OAuth tokens never reach the browser.
  *
- * Stalwart JMAP push spec:
- *   https://www.stalwart.email/docs/http/jmap/
+ * Confirmed Stalwart endpoint (from /.well-known/jmap):
+ *   wss://mail.katoemma.website/jmap/ws
  *
- * JMAP StateChange object (RFC 8620 §7.1):
- * {
- *   "@type": "StateChange",
- *   "changed": {
- *     "<accountId>": {
- *       "Email": "<newState>",
- *       "Mailbox": "<newState>",
- *       "EmailSubmission": "<newState>"
- *     }
- *   }
- * }
+ * JMAP WebSocket protocol (RFC 8887):
+ *   - Send WebSocketPushEnable to subscribe to state changes
+ *   - Receive StateChange objects when email/mailbox state changes
  */
 
-import { getSession } from '../../utils/auth'
-import { discoverJmapSession } from '../../services/jmap/session'
+import { decodeSession } from '../../utils/auth'
 
-// Map of peer id → Stalwart WebSocket connection
-const stalwartConnections = new Map<string, WebSocket>()
+// Map of peer.id → Stalwart WebSocket
+const stalwartConnections = new Map<string, import('ws').WebSocket>()
+
+// ── Extract session from raw WebSocket upgrade request ────────────────────────
+// peer.request is a standard Request object (not H3Event), so we read
+// the Cookie header directly.
+function getSessionFromRequest(request: Request) {
+  const config     = useRuntimeConfig()
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  const match        = cookieHeader.match(/(?:^|;\s*)nm_session=([^;]+)/)
+  if (!match) return null
+  return decodeSession(decodeURIComponent(match[1]), config.sessionSecret)
+}
 
 export default defineWebSocketHandler({
 
   async open(peer) {
-    // ── Authenticate via session cookie ───────────────────────────────────
-    const event = peer.request as unknown as Parameters<typeof getSession>[0]
-    const session = getSession(event)
-
+    // ── Auth ──────────────────────────────────────────────────────────────
+    const session = getSessionFromRequest(peer.request as unknown as Request)
     if (!session) {
       peer.send(JSON.stringify({ type: 'error', message: 'Unauthorised' }))
       peer.close()
@@ -46,53 +45,59 @@ export default defineWebSocketHandler({
 
     const { tokens, username } = session
 
-    // ── Discover the JMAP WebSocket URL ───────────────────────────────────
+    // ── Get the confirmed JMAP WebSocket URL from session discovery ────────
     let wsUrl: string
     try {
-      const config      = useRuntimeConfig()
       const jmapSession = await discoverJmapSession(tokens.accessToken, username)
 
-      // Stalwart exposes a WebSocket at the same base URL + /jmap/ws
-      // We derive it from the discovered apiUrl
-      wsUrl = jmapSession.apiUrl
-        .replace(/^https?:\/\//, (match) => match.startsWith('https') ? 'wss://' : 'ws://')
-        .replace(/\/jmap\/?$/, '/jmap/ws')
+      // Read from capabilities if present, otherwise build from apiUrl
+      const wsCap = (jmapSession.capabilities as Record<string, unknown>)?.['urn:ietf:params:jmap:websocket'] as
+        | { url?: string }
+        | undefined
+
+      wsUrl = wsCap?.url
+        ?? jmapSession.apiUrl
+          .replace(/^https/, 'wss')
+          .replace(/^http/, 'ws')
+          .replace(/\/jmap\/?$/, '/jmap/ws')
     }
     catch {
-      peer.send(JSON.stringify({ type: 'error', message: 'JMAP session discovery failed' }))
+      peer.send(JSON.stringify({ type: 'error', message: 'JMAP discovery failed' }))
       peer.close()
       return
     }
 
-    // ── Open a server-side connection to Stalwart JMAP WebSocket ──────────
+    // ── Connect to Stalwart JMAP WebSocket (server-side) ──────────────────
+    // Use the 'ws' package which is available in Node.js / Nitro and
+    // supports custom headers for Bearer auth.
     try {
-      const stalwartWs = new WebSocket(wsUrl, ['jmap'], {
-        // @ts-ignore — Node WebSocket headers
+      const { WebSocket: NodeWS } = await import('ws')
+
+      const stalwartWs = new NodeWS(wsUrl, ['jmap'], {
         headers: {
           'Authorization': `Bearer ${tokens.accessToken}`,
         },
-      } as unknown as string[])
+      })
 
       stalwartConnections.set(peer.id, stalwartWs)
 
-      // Subscribe to push notifications for Email + Mailbox changes
-      stalwartWs.addEventListener('open', () => {
+      stalwartWs.on('open', () => {
+        // Subscribe to Email + Mailbox state change notifications
         stalwartWs.send(JSON.stringify({
-          '@type': 'WebSocketPushEnable',
-          dataTypes: ['Email', 'Mailbox', 'EmailSubmission'],
-          pushState: null,
+          '@type':    'WebSocketPushEnable',
+          dataTypes:  null,   // null = all types; or ['Email','Mailbox','EmailSubmission']
+          pushState:  null,
         }))
         peer.send(JSON.stringify({ type: 'connected' }))
       })
 
-      // Relay Stalwart push events to the browser
-      stalwartWs.addEventListener('message', (evt) => {
+      stalwartWs.on('message', (data) => {
         try {
-          const data = typeof evt.data === 'string' ? evt.data : String(evt.data)
-          const msg  = JSON.parse(data)
+          const text = data.toString('utf8')
+          const msg  = JSON.parse(text)
 
-          // Only relay StateChange events — ignore API responses
           if (msg['@type'] === 'StateChange') {
+            // Only relay StateChange — not raw JMAP responses
             peer.send(JSON.stringify({
               type:    'StateChange',
               changed: msg.changed ?? {},
@@ -100,27 +105,33 @@ export default defineWebSocketHandler({
           }
         }
         catch {
-          // Malformed message — ignore
+          // Ignore malformed messages
         }
       })
 
-      stalwartWs.addEventListener('error', () => {
-        peer.send(JSON.stringify({ type: 'stalwart_error' }))
+      stalwartWs.on('error', (err) => {
+        console.error(`[ws/mail] Stalwart WS error for ${username}:`, err.message)
+        peer.send(JSON.stringify({ type: 'stalwart_error', message: err.message }))
       })
 
-      stalwartWs.addEventListener('close', () => {
+      stalwartWs.on('close', (code, reason) => {
         stalwartConnections.delete(peer.id)
-        peer.send(JSON.stringify({ type: 'stalwart_closed' }))
+        peer.send(JSON.stringify({
+          type:   'stalwart_closed',
+          code,
+          reason: reason.toString(),
+        }))
       })
     }
-    catch (err) {
-      peer.send(JSON.stringify({ type: 'error', message: `WebSocket connect failed: ${String(err)}` }))
+    catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[ws/mail] Failed to connect for ${username}:`, msg)
+      peer.send(JSON.stringify({ type: 'error', message: `Connect failed: ${msg}` }))
       peer.close()
     }
   },
 
   close(peer) {
-    // Clean up the Stalwart connection when the browser disconnects
     const stalwartWs = stalwartConnections.get(peer.id)
     if (stalwartWs) {
       stalwartWs.close()

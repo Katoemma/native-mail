@@ -32,6 +32,16 @@ export interface JmapSession {
   eventSourceUrl: string
   /** Resolved from primaryAccounts['urn:ietf:params:jmap:mail'] */
   accountId: string
+  /**
+   * Full capabilities map from /.well-known/jmap.
+   * Includes 'urn:ietf:params:jmap:websocket': { url, supportsPush }
+   */
+  capabilities: Record<string, unknown>
+}
+  /** URL for JMAP EventSource push */
+  eventSourceUrl: string
+  /** Resolved from primaryAccounts['urn:ietf:params:jmap:mail'] */
+  accountId: string
   capabilities: Record<string, unknown>
 }
 
