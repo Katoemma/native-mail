@@ -83,7 +83,7 @@ async function navTo(role: string, url: string) {
 
 // ── Select an email from the panel ───────────────────────────────────────────
 function selectMail(emailId: string) {
-  router.push(`/mail/${activeRole.value}/${emailId}`)
+  router.push({ path: `/mail/${activeRole.value}`, query: { id: emailId } })
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
