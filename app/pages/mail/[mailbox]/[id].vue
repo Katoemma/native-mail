@@ -66,9 +66,10 @@ function handleForward(id: string) {
 </script>
 
 <template>
-  <div class="flex flex-1 overflow-hidden h-full">
+  <div class="flex flex-1 w-full overflow-hidden h-full">
     <MailThread
       v-if="showThread && email?.threadId"
+      class="flex-1 w-full"
       :thread-id="email.threadId"
       @back="goBack"
       @reply="handleReply"
@@ -78,6 +79,7 @@ function handleForward(id: string) {
 
     <MailViewer
       v-else
+      class="flex-1 w-full"
       :email-id="emailId"
       @back="goBack"
       @reply="handleReply"

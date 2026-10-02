@@ -65,7 +65,7 @@ const mailboxLabel = computed(() => {
       </header>
 
       <!-- Page content injected here — full height, no padding, for the email viewer -->
-      <div class="flex flex-1 overflow-hidden">
+      <div class="flex flex-1 w-full overflow-hidden">
         <slot />
       </div>
     </SidebarInset>
