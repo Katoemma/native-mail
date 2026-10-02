@@ -301,6 +301,7 @@ export async function createDraft(
   accountId: string,
   draftsMailboxId: string,
   draft: {
+    from: JmapAddress                 // required — must be the user's real identity email
     to: JmapAddress[]
     cc?: JmapAddress[]
     bcc?: JmapAddress[]
@@ -314,58 +315,91 @@ export async function createDraft(
     inReplyTo?: string
   },
 ): Promise<string> {
-  const bodyParts: JmapBodyPart[] = []
+  // Build bodyValues and bodyStructure correctly.
+  //
+  // Rules:
+  //  - Plain text only  → bodyStructure type = "text/plain", partId = "1"
+  //  - HTML only        → bodyStructure type = "text/html",  partId = "1"
+  //  - Both             → multipart/alternative with two subParts
+  //  - With attachments → wrap the above in multipart/mixed
+  //
+  // A blank bodyStructure or multipart/mixed with empty subParts causes
+  // SMTP servers to reject the message with "missing From" / invalid body errors.
 
-  if (draft.htmlBody) {
-    bodyParts.push({ partId: 'html', type: 'text/html' })
+  const bodyValues: Record<string, { value: string; charset?: string }> = {}
+  let innerStructure: JmapBodyPart
+
+  if (draft.htmlBody && draft.textBody) {
+    bodyValues['1'] = { value: draft.textBody, charset: 'utf-8' }
+    bodyValues['2'] = { value: draft.htmlBody, charset: 'utf-8' }
+    innerStructure = {
+      type: 'multipart/alternative',
+      subParts: [
+        { partId: '1', type: 'text/plain' },
+        { partId: '2', type: 'text/html' },
+      ],
+    }
   }
-  else if (draft.textBody) {
-    bodyParts.push({ partId: 'text', type: 'text/plain' })
+  else if (draft.htmlBody) {
+    bodyValues['1'] = { value: draft.htmlBody, charset: 'utf-8' }
+    innerStructure = { partId: '1', type: 'text/html' }
+  }
+  else {
+    // Plain text (default) — always populate even if body is empty
+    const text = draft.textBody ?? ''
+    bodyValues['1'] = { value: text, charset: 'utf-8' }
+    innerStructure = { partId: '1', type: 'text/plain' }
   }
 
-  const bodyValues: Record<string, { value: string }> = {}
-  if (draft.htmlBody) bodyValues['html'] = { value: draft.htmlBody }
-  if (draft.textBody) bodyValues['text'] = { value: draft.textBody }
-
-  const attachmentParts = (draft.attachmentBlobIds ?? []).map(blobId => ({
+  // Wrap in multipart/mixed if there are attachments
+  const attachmentParts: JmapBodyPart[] = (draft.attachmentBlobIds ?? []).map(blobId => ({
     blobId,
     disposition: 'attachment',
   }))
 
+  const bodyStructure: JmapBodyPart = attachmentParts.length
+    ? {
+        type: 'multipart/mixed',
+        subParts: [innerStructure, ...attachmentParts],
+      }
+    : innerStructure
+
   const emailCreate: Record<string, unknown> = {
     mailboxIds: { [draftsMailboxId]: true },
-    keywords: { $draft: true },
-    from: [{ email: '' }], // Will be set by identity at send time
-    to: draft.to,
-    cc: draft.cc ?? [],
-    bcc: draft.bcc ?? [],
-    subject: draft.subject,
+    keywords:   { $draft: true },
+    from:       [{ name: draft.from.name, email: draft.from.email }],
+    to:         draft.to,
+    cc:         draft.cc ?? [],
+    bcc:        draft.bcc ?? [],
+    subject:    draft.subject,
     bodyValues,
-    bodyStructure: {
-      type: 'multipart/mixed',
-      subParts: [...bodyParts, ...attachmentParts],
-    },
+    bodyStructure,
   }
 
   if (draft.references) emailCreate['header:References:asText'] = draft.references
-  if (draft.inReplyTo) emailCreate['header:In-Reply-To:asText'] = draft.inReplyTo
-  if (draft.threadId) emailCreate.threadId = draft.threadId
+  if (draft.inReplyTo)  emailCreate['header:In-Reply-To:asText'] = draft.inReplyTo
+  if (draft.threadId)   emailCreate.threadId = draft.threadId
 
   const response = await client.request([
     [
       'Email/set',
-      {
-        accountId,
-        create: { draft: emailCreate },
-      },
+      { accountId, create: { draft: emailCreate } },
       'create-draft',
     ],
   ])
-  const args = client.getResponse<{ created: Record<string, { id: string }> }>(
-    response, 'create-draft',
-  )
+  const args = client.getResponse<{
+    created: Record<string, { id: string }>
+    notCreated?: Record<string, { type: string; description?: string }>
+  }>(response, 'create-draft')
+
+  // Surface JMAP creation errors explicitly
+  if (args.notCreated?.draft) {
+    const err = args.notCreated.draft
+    throw new Error(`Draft creation failed: ${err.type} — ${err.description ?? ''}`)
+  }
+
   const created = args.created?.draft
-  if (!created?.id) throw new Error('Draft creation failed')
+  if (!created?.id) throw new Error('Draft creation failed: no id returned')
   return created.id
 }
 

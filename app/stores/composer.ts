@@ -97,29 +97,28 @@ export const useComposerStore = defineStore('composer', {
       this.error = null
       try {
         const payload: DraftPayload = {
-          to: this.to,
-          cc: this.cc,
-          bcc: this.bcc,
-          subject: this.subject,
-          textBody: this.body,
+          to:                this.to,
+          cc:                this.cc,
+          bcc:               this.bcc,
+          subject:           this.subject,
+          textBody:          this.body,
           attachmentBlobIds: this.uploadedBlobIds,
-          inReplyToEmailId: this.inReplyToEmailId ?? undefined,
-          threadId: this.threadId ?? undefined,
+          inReplyToEmailId:  this.inReplyToEmailId ?? undefined,
+          threadId:          this.threadId ?? undefined,
         }
 
         if (this.draftId) {
-          await $fetch(`/api/drafts/${this.draftId}`, {
-            method: 'PATCH',
-            body: { 'bodyValues/text': { value: this.body }, subject: this.subject },
-          })
+          // Delete old draft and recreate — JMAP bodyValues patching is complex.
+          // This ensures subject, body, and recipients are always in sync.
+          await $fetch(`/api/emails/${this.draftId}`, { method: 'DELETE' }).catch(() => {})
+          this.draftId = null
         }
-        else {
-          const res = await $fetch<{ emailId: string }>('/api/drafts', {
-            method: 'POST',
-            body: payload,
-          })
-          this.draftId = res.emailId
-        }
+
+        const res = await $fetch<{ emailId: string }>('/api/drafts', {
+          method: 'POST',
+          body:   payload,
+        })
+        this.draftId = res.emailId
         this.lastSavedAt = Date.now()
       }
       catch (err: unknown) {
@@ -135,8 +134,9 @@ export const useComposerStore = defineStore('composer', {
       this.sending = true
       this.error = null
       try {
-        // Always save/create the draft first to get an emailId
-        if (!this.draftId) await this.saveDraft()
+        // Always (re)create the draft with the latest content before sending.
+        // This guarantees the From, To, Subject, and body are all correct.
+        await this.saveDraft()
         if (!this.draftId) throw new Error('Could not create draft before sending')
 
         await $fetch(`/api/emails/${this.draftId}/send`, { method: 'POST' })
@@ -145,6 +145,7 @@ export const useComposerStore = defineStore('composer', {
       }
       catch (err: unknown) {
         this.error = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Send failed'
+        this.sending = false
       }
       finally {
         this.sending = false
