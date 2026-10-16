@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Mail, ArrowRight, Loader2, ShieldCheck } from '@lucide/vue'
+import { ArrowRight, Loader2, ShieldCheck } from '@lucide/vue'
+import logoUrl from '~/assets/images/logo.png'
 
 definePageMeta({ layout: false })
 
@@ -57,17 +58,24 @@ onMounted(async () => {
         <div class="mb-10 text-center">
           <div
             :class="[
-              'login-mark mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground',
+              'login-mark mx-auto mb-5 overflow-hidden rounded-2xl',
               'transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]',
-              ready ? 'scale-100' : 'scale-90',
+              ready ? 'scale-100' : 'scale-95',
             ]"
           >
-            <Mail class="size-7" :stroke-width="1.75" />
+            <img
+              :src="logoUrl"
+              alt="Native"
+              class="mx-auto h-auto w-full max-w-[280px] object-contain sm:max-w-[320px]"
+              width="640"
+              height="200"
+            >
           </div>
-          <h1 class="login-brand text-[2.35rem] font-extrabold leading-none tracking-tight text-foreground sm:text-5xl">
-            Native Mail
-          </h1>
-          <p class="mt-3 text-[0.95rem] text-muted-foreground">
+          <h1 class="sr-only">Native Mail</h1>
+          <p class="login-brand text-lg font-semibold tracking-tight text-foreground">
+            Mail
+          </p>
+          <p class="mt-2 text-[0.95rem] text-muted-foreground">
             Secure mail for your day — powered by Stalwart.
           </p>
         </div>
@@ -160,8 +168,7 @@ onMounted(async () => {
 
 .login-mark {
   box-shadow:
-    0 1px 0 color-mix(in oklch, white 25%, transparent) inset,
-    0 12px 28px -12px color-mix(in oklch, var(--primary) 55%, transparent);
+    0 18px 40px -24px color-mix(in oklch, var(--foreground) 35%, transparent);
 }
 
 .login-panel {
