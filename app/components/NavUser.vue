@@ -37,11 +37,14 @@ const props = defineProps<{
 const { isMobile } = useSidebar()
 const sessionStore = useSessionStore()
 
-// Initials for avatar fallback — first letter of first + last name
+// Initials for avatar fallback — never empty (blank AvatarFallback looks broken)
 const initials = computed(() => {
-  const parts = props.user.name.trim().split(' ')
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-  return props.user.name.slice(0, 2).toUpperCase()
+  const label = (props.user.name || props.user.email || 'U').trim()
+  const parts = label.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return label.slice(0, 2).toUpperCase() || 'U'
 })
 </script>
 

@@ -42,8 +42,8 @@ function doSearch() {
 }
 
 const user = computed(() => ({
-  name:   sessionStore.displayName ?? sessionStore.username ?? '?',
-  email:  sessionStore.email ?? '',
+  name:   sessionStore.displayName || sessionStore.username || 'User',
+  email:  sessionStore.email || sessionStore.username || '',
   avatar: '',
 }))
 </script>

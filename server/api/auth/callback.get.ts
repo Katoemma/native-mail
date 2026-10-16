@@ -88,8 +88,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // ── Resolve user identity via JMAP ────────────────────────────────────────
-  let username    = 'unknown'
-  let displayName = ''
+  // Always persist non-empty display fields — empty strings make the UI blank
+  // because client fallbacks use ?? (which does not treat '' as missing).
+  let username    = 'user'
+  let displayName = 'User'
   let email       = ''
 
   try {
@@ -103,17 +105,18 @@ export default defineEventHandler(async (event) => {
     const args     = client.getResponse<{ list: Identity[] }>(response, 'identities')
     const identity = args.list?.[0]
 
-    if (identity) {
+    if (identity?.email) {
       username    = identity.email
-      displayName = identity.name || identity.email
+      displayName = (identity.name || identity.email).trim() || identity.email
       email       = identity.email
 
-      // Now that we have the real username, move the cached session to the right key
+      // Now that we have the real username, cache the JMAP session under it
       await discoverJmapSession(tokens.accessToken, username)
     }
   }
-  catch {
-    // Non-fatal — the user is authenticated, we just lack display info
+  catch (err) {
+    // Non-fatal — user is authenticated; /api/session will retry identity later
+    console.warn('[callback] Identity/get failed, session will heal on next /api/session:', err)
   }
 
   // ── Set session cookie ────────────────────────────────────────────────────

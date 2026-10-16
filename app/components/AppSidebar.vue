@@ -104,9 +104,10 @@ function onSearch(e: Event) {
 }
 
 // ── User ──────────────────────────────────────────────────────────────────────
+// Use || (not ??) so empty strings from a partial session still fall through.
 const user = computed(() => ({
-  name:   sessionStore.displayName ?? sessionStore.username ?? '?',
-  email:  sessionStore.email ?? '',
+  name:   sessionStore.displayName || sessionStore.username || 'User',
+  email:  sessionStore.email || sessionStore.username || '',
   avatar: '',
 }))
 
