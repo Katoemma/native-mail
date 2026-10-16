@@ -6,7 +6,7 @@ import type { EmailChangesResponse } from '../../shared/types'
  * Flow:
  *  1. Connect to /ws/mail (Nuxt BFF)
  *  2. BFF proxies to Stalwart JMAP WebSocket using OAuth token
- *  3. On StateChange push → run Email/changes for affected mailboxes
+ *  3. On StateChange → Email/changes + patch Pinia (no full list reload)
  *  4. On disconnect → reconnect with exponential backoff
  *  5. On tab focus → trigger a manual sync as safety net
  */
@@ -26,7 +26,7 @@ export function useSync() {
   let syncing = false
   let pendingSync = false
 
-  async function syncMailbox(mailboxId: string) {
+  async function syncIncremental() {
     if (syncing) {
       pendingSync = true
       return
@@ -46,14 +46,20 @@ export function useSync() {
             mailStore.emailState = changes.newState
           }
 
-          if (changes.created.length || changes.updated.length || changes.destroyed.length) {
-            if (changes.created.length || changes.updated.length) {
-              await mailStore.fetchList(mailboxId, true)
-            }
-            mailStore.applyChanges(mailboxId, changes.created, changes.updated, changes.destroyed)
-          }
+          const hasDiff = changes.created.length
+            || changes.updated.length
+            || changes.destroyed.length
 
-          await mailboxesStore.fetch()
+          if (hasDiff) {
+            mailStore.applyIncremental({
+              emails:    changes.emails ?? [],
+              created:   changes.created,
+              updated:   changes.updated,
+              destroyed: changes.destroyed,
+            })
+            // Refresh folder badges (unread counts) only — not the message list
+            await mailboxesStore.fetch()
+          }
           return
         }
         catch {
@@ -61,8 +67,9 @@ export function useSync() {
         }
       }
 
-      // No state yet, or Email/changes failed → full list refresh
-      await mailStore.fetchList(mailboxId, true)
+      // No state yet, or Email/changes failed → full list refresh for current mailbox
+      const selectedId = mailboxesStore.selectedId
+      if (selectedId) await mailStore.fetchList(selectedId, true)
       await mailboxesStore.fetch()
     }
     catch {
@@ -72,16 +79,18 @@ export function useSync() {
       syncing = false
       if (pendingSync) {
         pendingSync = false
-        const selectedId = mailboxesStore.selectedId
-        if (selectedId) void syncMailbox(selectedId)
+        void syncIncremental()
       }
     }
   }
 
+  /** @deprecated alias — prefer syncIncremental */
+  async function syncMailbox(_mailboxId: string) {
+    await syncIncremental()
+  }
+
   async function syncAll() {
-    // Sync the currently selected mailbox
-    const selectedId = mailboxesStore.selectedId
-    if (selectedId) await syncMailbox(selectedId)
+    await syncIncremental()
   }
 
   // ── WebSocket connection ──────────────────────────────────────────────────
@@ -143,11 +152,9 @@ export function useSync() {
           }
 
           if (msg.type === 'StateChange' && msg.changed) {
-            // Find the accountId key and extract which types changed
             for (const [, typeStates] of Object.entries(msg.changed)) {
-              // If Email changed, sync the current mailbox
               if ('Email' in typeStates || 'Mailbox' in typeStates) {
-                syncAll()
+                syncIncremental()
               }
             }
           }
@@ -187,12 +194,11 @@ export function useSync() {
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        // If WS is down, try to reconnect; always do a manual sync
         if (wsStatus.value === 'disconnected') connect()
-        syncAll()
+        syncIncremental()
       }
     }
-    const onFocus = () => syncAll()
+    const onFocus = () => syncIncremental()
 
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onFocus)
@@ -204,5 +210,5 @@ export function useSync() {
     })
   }
 
-  return { wsStatus, syncAll, syncMailbox, setupFocusSync, connect, disconnect }
+  return { wsStatus, syncAll, syncMailbox, syncIncremental, setupFocusSync, connect, disconnect }
 }

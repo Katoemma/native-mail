@@ -214,4 +214,6 @@ export interface EmailChangesResponse {
   created: string[]
   updated: string[]
   destroyed: string[]
+  /** List-view payloads for created + updated ids (for incremental UI sync) */
+  emails: MailMessage[]
 }

@@ -196,5 +196,80 @@ export const useMailStore = defineStore('mail', {
         )
       }
     },
+
+    /**
+     * Patch the store from Email/changes without reloading the list.
+     * New emails are prepended to any loaded mailbox they belong to.
+     */
+    applyIncremental(payload: {
+      emails: MailMessage[]
+      created: string[]
+      updated: string[]
+      destroyed: string[]
+    }) {
+      const { emails, created, updated, destroyed } = payload
+      const createdSet = new Set(created)
+      const updatedSet = new Set(updated)
+
+      for (const id of destroyed) {
+        // Adjust totals for mailboxes that had this id
+        for (const mbId of Object.keys(this.idsByMailbox)) {
+          if (this.idsByMailbox[mbId].includes(id)) {
+            this.totalByMailbox[mbId] = Math.max(0, (this.totalByMailbox[mbId] ?? 1) - 1)
+            this.positionByMailbox[mbId] = Math.max(0, (this.positionByMailbox[mbId] ?? 1) - 1)
+          }
+        }
+        this._removeFromAllMailboxes(id)
+      }
+
+      // Newest first when inserting several at once
+      const sorted = [...emails].sort((a, b) => {
+        const ta = a.receivedAt ? Date.parse(a.receivedAt) : 0
+        const tb = b.receivedAt ? Date.parse(b.receivedAt) : 0
+        return tb - ta
+      })
+
+      for (const email of sorted) {
+        this.emails[email.id] = email
+        if (updatedSet.has(email.id)) {
+          delete this.fullEmails[email.id]
+        }
+
+        const targetMailboxes = Object.keys(email.mailboxIds).filter(k => email.mailboxIds[k])
+
+        // Drop from mailboxes it no longer belongs to
+        for (const mbId of Object.keys(this.idsByMailbox)) {
+          const inList = this.idsByMailbox[mbId].includes(email.id)
+          const shouldBe = targetMailboxes.includes(mbId)
+          if (inList && !shouldBe) {
+            this.idsByMailbox[mbId] = this.idsByMailbox[mbId].filter(i => i !== email.id)
+            this.totalByMailbox[mbId] = Math.max(0, (this.totalByMailbox[mbId] ?? 1) - 1)
+            this.positionByMailbox[mbId] = Math.max(0, (this.positionByMailbox[mbId] ?? 1) - 1)
+          }
+        }
+
+        // Add / refresh membership in loaded mailboxes
+        for (const mbId of targetMailboxes) {
+          // Only touch mailboxes we've already loaded
+          if (!(mbId in this.idsByMailbox)) continue
+
+          const ids = this.idsByMailbox[mbId]
+          const idx = ids.indexOf(email.id)
+
+          if (idx === -1 && createdSet.has(email.id)) {
+            this.idsByMailbox[mbId] = [email.id, ...ids]
+            this.totalByMailbox[mbId] = (this.totalByMailbox[mbId] ?? 0) + 1
+            this.positionByMailbox[mbId] = (this.positionByMailbox[mbId] ?? 0) + 1
+          }
+          else if (idx === -1 && updatedSet.has(email.id)) {
+            // Moved into this mailbox — place at top
+            this.idsByMailbox[mbId] = [email.id, ...ids]
+            this.totalByMailbox[mbId] = (this.totalByMailbox[mbId] ?? 0) + 1
+            this.positionByMailbox[mbId] = (this.positionByMailbox[mbId] ?? 0) + 1
+          }
+          // else: already in list — email object updated in place above
+        }
+      }
+    },
   },
 })
