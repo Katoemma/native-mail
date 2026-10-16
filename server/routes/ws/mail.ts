@@ -17,6 +17,8 @@
  */
 
 import { decodeSession } from '../../utils/auth'
+import { discoverJmapSession } from '../../services/jmap/session'
+import { isTokenExpired, refreshAccessToken, discoverOAuthMetadata } from '../../services/stalwart/oauth'
 
 // Map of peer.id → Stalwart WebSocket
 const stalwartConnections = new Map<string, import('ws').WebSocket>()
@@ -43,15 +45,43 @@ export default defineWebSocketHandler({
       return
     }
 
-    const { tokens, username } = session
+    const { username } = session
+    let accessToken = session.tokens.accessToken
+
+    // Refresh expired access token before opening Stalwart WS
+    // (HTTP routes do this via createJmapClient; WS has no H3Event to persist).
+    try {
+      if (isTokenExpired(session.tokens)) {
+        if (!session.tokens.refreshToken) {
+          peer.send(JSON.stringify({ type: 'error', message: 'Session expired' }))
+          peer.close()
+          return
+        }
+        const config = useRuntimeConfig()
+        const metadata = await discoverOAuthMetadata(config.jmapBaseUrl)
+        const refreshed = await refreshAccessToken({
+          tokenEndpoint: metadata.token_endpoint,
+          clientId:      config.oauthClientId,
+          clientSecret:  config.oauthClientSecret,
+          refreshToken:  session.tokens.refreshToken,
+        })
+        accessToken = refreshed.accessToken
+      }
+    }
+    catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      peer.send(JSON.stringify({ type: 'error', message: `Token refresh failed: ${msg}` }))
+      peer.close()
+      return
+    }
 
     // ── Get the confirmed JMAP WebSocket URL from session discovery ────────
     let wsUrl: string
     try {
-      const jmapSession = await discoverJmapSession(tokens.accessToken, username)
+      const jmapSession = await discoverJmapSession(accessToken, username)
 
       // Read from capabilities if present, otherwise build from apiUrl
-      const wsCap = (jmapSession.capabilities as Record<string, unknown>)?.['urn:ietf:params:jmap:websocket'] as
+      const wsCap = jmapSession.capabilities?.['urn:ietf:params:jmap:websocket'] as
         | { url?: string }
         | undefined
 
@@ -75,7 +105,7 @@ export default defineWebSocketHandler({
 
       const stalwartWs = new NodeWS(wsUrl, ['jmap'], {
         headers: {
-          'Authorization': `Bearer ${tokens.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       })
 

@@ -19,8 +19,10 @@ interface MailState {
   /** Pagination */
   totalByMailbox: Record<string, number>
   positionByMailbox: Record<string, number>
-  /** JMAP state tokens for incremental sync */
+  /** Email/query queryState per mailbox (for Email/queryChanges) */
   queryStateByMailbox: Record<string, string>
+  /** Account-wide Email/get state — used with Email/changes on push */
+  emailState: string | null
 }
 
 export const useMailStore = defineStore('mail', {
@@ -36,6 +38,7 @@ export const useMailStore = defineStore('mail', {
     totalByMailbox: {},
     positionByMailbox: {},
     queryStateByMailbox: {},
+    emailState: null,
   }),
 
   getters: {
@@ -78,6 +81,7 @@ export const useMailStore = defineStore('mail', {
         this.totalByMailbox[mailboxId] = res.total
         this.positionByMailbox[mailboxId] = position + res.emails.length
         this.queryStateByMailbox[mailboxId] = res.queryState
+        if (res.emailState) this.emailState = res.emailState
       }
       catch (err: unknown) {
         this.listError = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Failed to load emails'

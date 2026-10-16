@@ -23,28 +23,45 @@ export function useSync() {
 
   // ── Sync logic ───────────────────────────────────────────────────────────
   let syncing = false
+  let pendingSync = false
 
   async function syncMailbox(mailboxId: string) {
-    const sinceState = mailStore.queryStateByMailbox[mailboxId]
-    if (!sinceState || syncing) return
+    if (syncing) {
+      pendingSync = true
+      return
+    }
 
     syncing = true
     try {
-      const changes = await $fetch<EmailChangesResponse>('/api/emails/changes', {
-        query: { sinceState },
-      })
+      const sinceState = mailStore.emailState
 
-      if (changes.created.length || changes.updated.length || changes.destroyed.length) {
-        if (changes.created.length || changes.updated.length) {
-          await mailStore.fetchList(mailboxId, true)
+      if (sinceState) {
+        try {
+          const changes = await $fetch<EmailChangesResponse>('/api/emails/changes', {
+            query: { sinceState },
+          })
+
+          if (changes.newState) {
+            mailStore.emailState = changes.newState
+          }
+
+          if (changes.created.length || changes.updated.length || changes.destroyed.length) {
+            if (changes.created.length || changes.updated.length) {
+              await mailStore.fetchList(mailboxId, true)
+            }
+            mailStore.applyChanges(mailboxId, changes.created, changes.updated, changes.destroyed)
+          }
+
+          await mailboxesStore.fetch()
+          return
         }
-        mailStore.applyChanges(mailboxId, changes.created, changes.updated, changes.destroyed)
+        catch {
+          // Invalid/expired state token — fall through to full refetch
+        }
       }
 
-      if (changes.newState) {
-        mailStore.queryStateByMailbox[mailboxId] = changes.newState
-      }
-
+      // No state yet, or Email/changes failed → full list refresh
+      await mailStore.fetchList(mailboxId, true)
       await mailboxesStore.fetch()
     }
     catch {
@@ -52,6 +69,11 @@ export function useSync() {
     }
     finally {
       syncing = false
+      if (pendingSync) {
+        pendingSync = false
+        const selectedId = mailboxesStore.selectedId
+        if (selectedId) void syncMailbox(selectedId)
+      }
     }
   }
 

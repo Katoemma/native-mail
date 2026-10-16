@@ -15,6 +15,6 @@ export default defineEventHandler(async (event): Promise<ApiThreadResponse> => {
   const thread  = threads[0]
   if (!thread) throw createError({ statusCode: 404, statusMessage: 'Thread not found' })
 
-  const emails = await getEmailList(client, jmapSession.accountId, thread.emailIds)
+  const { emails } = await getEmailList(client, jmapSession.accountId, thread.emailIds)
   return { thread, emails }
 })

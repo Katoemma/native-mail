@@ -199,8 +199,9 @@ export async function getEmailList(
   client: JmapClient,
   accountId: string,
   ids: string[],
-): Promise<MailMessage[]> {
-  if (!ids.length) return []
+): Promise<{ emails: MailMessage[]; state: string }> {
+  // Always call Email/get (even with empty ids) so we get the account-wide
+  // `state` token needed for Email/changes push sync.
   const response = await client.request([
     [
       'Email/get',
@@ -209,7 +210,10 @@ export async function getEmailList(
     ],
   ])
   const args = client.getResponse<{ list: JmapEmailList[]; state: string }>(response, 'email-list')
-  return (args.list ?? []).map(normaliseList)
+  return {
+    emails: (args.list ?? []).map(normaliseList),
+    state:  args.state ?? '',
+  }
 }
 
 export async function getEmailFull(
@@ -419,6 +423,7 @@ export async function getEmailChanges(
   accountId: string,
   sinceState: string,
 ): Promise<{
+  oldState: string
   created: string[]
   updated: string[]
   destroyed: string[]
@@ -429,6 +434,7 @@ export async function getEmailChanges(
     ['Email/changes', { accountId, sinceState, maxChanges: 100 }, 'email-changes'],
   ])
   const args = client.getResponse<{
+    oldState: string
     created: string[]
     updated: string[]
     destroyed: string[]

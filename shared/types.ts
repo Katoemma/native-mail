@@ -38,12 +38,6 @@ export interface JmapSession {
    */
   capabilities: Record<string, unknown>
 }
-  /** URL for JMAP EventSource push */
-  eventSourceUrl: string
-  /** Resolved from primaryAccounts['urn:ietf:params:jmap:mail'] */
-  accountId: string
-  capabilities: Record<string, unknown>
-}
 
 // ---------------------------------------------------------------------------
 // Mail domain types
@@ -172,7 +166,10 @@ export interface ApiEmailsResponse {
   emails: MailMessage[]
   total: number
   position: number
+  /** Email/query queryState — for Email/queryChanges (not Email/changes) */
   queryState: string
+  /** Email/get state — account-wide, for Email/changes incremental sync */
+  emailState: string
 }
 
 export interface ApiEmailResponse {

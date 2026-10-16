@@ -24,6 +24,6 @@ export default defineEventHandler(async (event): Promise<ApiEmailsResponse> => {
   const { ids, total, queryState } = await queryEmails(
     client, jmapSession.accountId, mb.id, position, limit,
   )
-  const emails = await getEmailList(client, jmapSession.accountId, ids)
-  return { emails, total, position, queryState }
+  const { emails, state: emailState } = await getEmailList(client, jmapSession.accountId, ids)
+  return { emails, total, position, queryState, emailState }
 })

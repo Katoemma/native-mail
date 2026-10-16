@@ -32,6 +32,6 @@ export default defineEventHandler(async (event): Promise<ApiSearchResponse> => {
   ])
 
   const args   = client.getResponse<{ ids: string[]; total: number }>(response, 'search')
-  const emails = await getEmailList(client, jmapSession.accountId, args.ids ?? [])
+  const { emails } = await getEmailList(client, jmapSession.accountId, args.ids ?? [])
   return { emails, total: args.total ?? 0 }
 })
