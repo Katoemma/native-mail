@@ -49,7 +49,7 @@ function createHead(options = {}) {
   return head;
 }
 
-const appHead = {"meta":[{"name":"viewport","content":"width=device-width, initial-scale=1"},{"charset":"utf-8"},{"name":"theme-color","content":"#f71212"},{"name":"msapplication-TileColor","content":"#f71212"},{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"}],"link":[],"style":[],"script":[],"noscript":[]};
+const appHead = {"meta":[{"name":"viewport","content":"width=device-width, initial-scale=1"},{"charset":"utf-8"},{"name":"theme-color","content":"#f71212"},{"name":"msapplication-TileColor","content":"#f71212"},{"name":"mobile-web-app-capable","content":"yes"},{"name":"apple-mobile-web-app-capable","content":"yes"},{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"},{"name":"apple-mobile-web-app-title","content":"Native Mail"}],"link":[{"rel":"icon","type":"image/x-icon","href":"/favicon.ico"},{"rel":"apple-touch-icon","sizes":"180x180","href":"/apple-touch-icon.png"}],"style":[],"script":[],"noscript":[],"title":"Native Mail"};
 
 const appRootTag = "div";
 
@@ -199,7 +199,7 @@ function setSSRError(ssrContext, error) {
 
 const renderSSRHeadOptions = {"omitLineBreaks":true};
 
-const entryFileName = "Cs4WWLWb.js";
+const entryFileName = "83zGk3Ll.js";
 
 globalThis.__buildAssetsURL = buildAssetsURL;
 globalThis.__publicAssetsURL = publicAssetsURL;

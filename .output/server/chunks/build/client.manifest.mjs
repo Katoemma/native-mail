@@ -51,13 +51,14 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "Cs4WWLWb.js",
+    "file": "83zGk3Ll.js",
     "name": "entry",
     "src": "../node_modules/nuxt/dist/app/entry.js",
     "isEntry": true,
     "dynamicImports": [
       "middleware/auth.ts",
       "layouts/sidebarLayout.vue",
+      "../node_modules/workbox-window/build/workbox-window.prod.es5.mjs",
       "../node_modules/nuxt/dist/app/components/error-404.vue",
       "../node_modules/nuxt/dist/app/components/error-500.vue"
     ],
@@ -70,6 +71,16 @@ const client_manifest = {
     "resourceType": "style",
     "prefetch": true,
     "preload": true
+  },
+  "../node_modules/workbox-window/build/workbox-window.prod.es5.mjs": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "BBnX5xw4.js",
+    "name": "workbox-window.prod.es5",
+    "src": "../node_modules/workbox-window/build/workbox-window.prod.es5.mjs",
+    "isDynamicEntry": true
   },
   "_B1rRfT2R.js": {
     "resourceType": "script",
