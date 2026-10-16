@@ -184,7 +184,7 @@ function formatDate(iso: string | null): string {
     </Sidebar>
 
     <!-- ── Second sidebar: mail list panel ──────────────────────────────── -->
-    <Sidebar collapsible="none" class="hidden flex-1 md:flex">
+    <Sidebar collapsible="none" class="hidden min-w-0 flex-1 md:flex">
       <SidebarHeader class="gap-3.5 border-b p-4">
         <div class="flex w-full items-center justify-between">
           <div class="text-base font-medium text-foreground">
@@ -232,31 +232,31 @@ function formatDate(iso: string | null): string {
               v-for="mail in panelEmails"
               :key="mail.id"
               :class="[
-                'w-full text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight last:border-b-0 transition-colors',
+                'w-full min-w-0 overflow-hidden text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-stretch gap-2 border-b p-4 text-sm leading-tight last:border-b-0 transition-colors',
                 !mail.isRead && 'bg-sidebar-accent/30 font-medium',
                 route.params.id === mail.id && 'bg-sidebar-accent text-sidebar-accent-foreground',
               ]"
               @click="selectMail(mail.id)"
             >
-              <div class="flex w-full items-center gap-2">
+              <div class="flex w-full min-w-0 items-center gap-2">
                 <!-- Unread dot -->
                 <span
                   v-if="!mail.isRead"
                   class="size-1.5 rounded-full bg-primary shrink-0"
                 />
-                <span class="truncate flex-1">
+                <span class="truncate min-w-0 flex-1">
                   {{ mail.from[0]?.name || mail.from[0]?.email || '(unknown)' }}
                 </span>
                 <Star
                   v-if="mail.isStarred"
                   class="size-3 fill-amber-400 text-amber-400 shrink-0"
                 />
-                <span class="ml-auto text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                <span class="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                   {{ formatDate(mail.receivedAt) }}
                 </span>
               </div>
-              <span class="font-medium truncate w-full">{{ mail.subject }}</span>
-              <span class="line-clamp-2 w-[260px] whitespace-break-spaces text-xs text-muted-foreground font-normal">
+              <span class="font-medium truncate min-w-0">{{ mail.subject }}</span>
+              <span class="line-clamp-2 min-w-0 break-words text-xs text-muted-foreground font-normal">
                 {{ mail.preview }}
               </span>
             </button>

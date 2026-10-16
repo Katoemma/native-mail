@@ -28,7 +28,7 @@ const senderName = computed(() => {
 <template>
   <button
     :class="[
-      'w-full text-left flex flex-col gap-1 px-4 py-3 border-b transition-colors',
+      'w-full min-w-0 overflow-hidden text-left flex flex-col gap-1 px-4 py-3 border-b transition-colors',
       active
         ? 'bg-accent text-accent-foreground'
         : 'hover:bg-muted/50',
@@ -36,7 +36,7 @@ const senderName = computed(() => {
     ]"
     @click="emit('click', email.id)"
   >
-    <div class="flex items-center gap-2">
+    <div class="flex min-w-0 items-center gap-2">
       <!-- Unread dot -->
       <span
         v-if="!email.isRead"
@@ -44,7 +44,7 @@ const senderName = computed(() => {
       />
       <span v-else class="size-2 shrink-0" />
 
-      <span :class="['flex-1 text-sm truncate', !email.isRead && 'font-semibold']">
+      <span :class="['min-w-0 flex-1 text-sm truncate', !email.isRead && 'font-semibold']">
         {{ senderName }}
       </span>
 
@@ -64,12 +64,12 @@ const senderName = computed(() => {
       </span>
     </div>
 
-    <div :class="['text-sm truncate pl-4', !email.isRead ? 'font-medium' : 'text-foreground']">
+    <div :class="['min-w-0 text-sm truncate pl-4', !email.isRead ? 'font-medium' : 'text-foreground']">
       {{ email.subject }}
     </div>
 
-    <div class="flex items-center gap-1 pl-4">
-      <span class="text-xs text-muted-foreground truncate flex-1">{{ email.preview }}</span>
+    <div class="flex min-w-0 items-center gap-1 pl-4">
+      <span class="min-w-0 flex-1 text-xs text-muted-foreground truncate">{{ email.preview }}</span>
       <Paperclip v-if="email.hasAttachment" class="size-3 text-muted-foreground shrink-0" />
     </div>
   </button>
