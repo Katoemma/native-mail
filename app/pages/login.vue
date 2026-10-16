@@ -1,75 +1,202 @@
 <script setup lang="ts">
+import { Mail, ArrowRight, Loader2, ShieldCheck } from '@lucide/vue'
+
 definePageMeta({ layout: false })
+
+useHead({
+  link: [
+    {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap',
+    },
+  ],
+})
 
 const sessionStore = useSessionStore()
 const route        = useRoute()
 
-// Show error if Stalwart returned one via the callback redirect
 const oauthError = computed(() => route.query.error as string | undefined)
+const ready      = ref(false)
 
-// If already logged in, go straight to inbox
 onMounted(async () => {
+  requestAnimationFrame(() => { ready.value = true })
   await sessionStore.fetchSession()
   if (sessionStore.loggedIn) await navigateTo('/mail/inbox')
 })
 </script>
 
 <template>
-  <div class="min-h-svh flex items-center justify-center bg-background p-4">
-    <div class="w-full max-w-sm space-y-8">
-
-      <!-- Brand -->
-      <div class="text-center space-y-3">
-        <div class="inline-flex items-center justify-center size-14 rounded-2xl bg-primary text-primary-foreground text-2xl font-bold shadow-lg">
-          N
-        </div>
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Native Mail</h1>
-          <p class="text-sm text-muted-foreground mt-1">
-            Powered by Stalwart
-          </p>
-        </div>
-      </div>
-
-      <!-- OAuth error banner -->
-      <div
-        v-if="oauthError"
-        class="rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm px-4 py-3"
+  <div class="login-page relative min-h-svh overflow-hidden">
+    <!-- Atmosphere -->
+    <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div class="login-wash absolute inset-0" />
+      <div class="login-grid absolute inset-0 opacity-[0.35]" />
+      <div class="login-orb login-orb-a absolute -top-24 -right-16 size-[28rem] rounded-full" />
+      <div class="login-orb login-orb-b absolute -bottom-32 -left-20 size-[24rem] rounded-full" />
+      <svg
+        class="login-envelope absolute right-[8%] top-1/2 hidden w-[min(42vw,28rem)] -translate-y-1/2 text-primary/10 lg:block"
+        viewBox="0 0 320 240"
+        fill="none"
       >
-        <p class="font-medium">Authentication failed</p>
-        <p class="mt-0.5 opacity-80">{{ oauthError }}</p>
-      </div>
+        <rect x="24" y="48" width="272" height="160" rx="18" stroke="currentColor" stroke-width="2" />
+        <path d="M24 68 L160 148 L296 68" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+        <circle cx="248" cy="168" r="6" fill="currentColor" opacity="0.35" />
+        <circle cx="268" cy="168" r="6" fill="currentColor" opacity="0.22" />
+        <circle cx="288" cy="168" r="6" fill="currentColor" opacity="0.12" />
+      </svg>
+    </div>
 
-      <!-- Sign-in card -->
-      <div class="rounded-xl border bg-card shadow-sm p-6 space-y-4">
-        <div class="space-y-1">
-          <h2 class="text-base font-medium">Sign in to your mailbox</h2>
-          <p class="text-sm text-muted-foreground">
-            You will be redirected to the mail server to authenticate securely.
-            Your password is never shared with this application.
+    <div class="relative z-10 flex min-h-svh flex-col items-center justify-center px-6 py-12">
+      <div
+        :class="[
+          'w-full max-w-md transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]',
+          ready ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0',
+        ]"
+      >
+        <!-- Brand (hero signal) -->
+        <div class="mb-10 text-center">
+          <div
+            :class="[
+              'login-mark mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground',
+              'transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]',
+              ready ? 'scale-100' : 'scale-90',
+            ]"
+          >
+            <Mail class="size-7" :stroke-width="1.75" />
+          </div>
+          <h1 class="login-brand text-[2.35rem] font-extrabold leading-none tracking-tight text-foreground sm:text-5xl">
+            Native Mail
+          </h1>
+          <p class="mt-3 text-[0.95rem] text-muted-foreground">
+            Secure mail for your day — powered by Stalwart.
           </p>
         </div>
 
-        <button
-          class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-4 py-2.5 text-sm font-medium"
-          :disabled="sessionStore.loading"
-          @click="sessionStore.startOAuth()"
+        <!-- Error -->
+        <div
+          v-if="oauthError"
+          class="mb-5 rounded-xl border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive"
+          role="alert"
         >
-          <svg
-            v-if="sessionStore.loading"
-            class="size-4 animate-spin"
-            viewBox="0 0 24 24" fill="none"
-          >
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-          </svg>
-          <span>{{ sessionStore.loading ? 'Checking session…' : 'Sign in with Stalwart' }}</span>
-        </button>
-      </div>
+          <p class="font-semibold">Authentication failed</p>
+          <p class="mt-0.5 opacity-80">{{ oauthError }}</p>
+        </div>
 
-      <p class="text-center text-xs text-muted-foreground">
-        Uses OAuth 2.0 + PKCE — your credentials stay with the mail server.
-      </p>
+        <!-- Sign-in interaction -->
+        <div class="login-panel rounded-2xl border border-border/80 bg-background/80 p-6 backdrop-blur-md sm:p-7">
+          <div class="mb-6 space-y-1.5">
+            <h2 class="login-brand text-lg font-semibold tracking-tight text-foreground">
+              Sign in to your mailbox
+            </h2>
+            <p class="text-sm leading-relaxed text-muted-foreground">
+              You’ll authenticate on the mail server. Your password never touches this app.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="login-cta group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-[transform,opacity] duration-150 ease-out hover:opacity-95 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+            :disabled="sessionStore.loading"
+            @click="sessionStore.startOAuth()"
+          >
+            <Loader2 v-if="sessionStore.loading" class="size-4 animate-spin" />
+            <template v-else>
+              <span>Continue securely</span>
+              <ArrowRight
+                class="size-4 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5"
+                :stroke-width="2"
+              />
+            </template>
+          </button>
+
+          <div class="mt-5 flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+            <ShieldCheck class="mt-0.5 size-3.5 shrink-0 text-primary" :stroke-width="2" />
+            <p>OAuth 2.0 + PKCE — credentials stay with the mail server.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.login-brand {
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+.login-wash {
+  background:
+    radial-gradient(120% 80% at 10% -10%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 100% 100%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 50%),
+    linear-gradient(180deg, oklch(0.985 0.005 30) 0%, oklch(0.97 0.01 30) 100%);
+}
+
+.login-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, black, transparent);
+}
+
+.login-orb {
+  filter: blur(64px);
+  opacity: 0.45;
+}
+
+.login-orb-a {
+  background: color-mix(in oklch, var(--primary) 35%, transparent);
+  animation: loginFloat 12s ease-in-out infinite;
+}
+
+.login-orb-b {
+  background: color-mix(in oklch, var(--primary) 22%, oklch(0.85 0.04 60));
+  animation: loginFloat 16s ease-in-out infinite reverse;
+}
+
+.login-envelope {
+  animation: loginFloat 14s ease-in-out infinite;
+}
+
+.login-mark {
+  box-shadow:
+    0 1px 0 color-mix(in oklch, white 25%, transparent) inset,
+    0 12px 28px -12px color-mix(in oklch, var(--primary) 55%, transparent);
+}
+
+.login-panel {
+  box-shadow:
+    0 1px 0 color-mix(in oklch, white 70%, transparent) inset,
+    0 18px 40px -28px color-mix(in oklch, var(--foreground) 28%, transparent);
+}
+
+.login-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, color-mix(in oklch, white 22%, transparent) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.55s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.login-cta:hover::after {
+  transform: translateX(120%);
+}
+
+@keyframes loginFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-orb-a,
+  .login-orb-b,
+  .login-envelope {
+    animation: none;
+  }
+
+  .login-cta::after {
+    display: none;
+  }
+}
+</style>
