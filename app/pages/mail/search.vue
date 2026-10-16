@@ -14,15 +14,12 @@ const threadStore = useThreadStore()
 const composer    = useComposerStore()
 const route       = useRoute()
 const router      = useRouter()
-const { query, results, total, loading, error, search } = useSearch()
+const { results, total, loading, error } = useSearch()
+// Ensure debounce wiring even if layout mounts after this page
+useDebouncedMailSearch(350)
 
 const selectedId = computed(() => (route.query.id as string) ?? null)
 const q = computed(() => (route.query.q as string) ?? '')
-
-watch(q, (val) => {
-  if (val && val !== query.value) void search(val)
-  else if (val && !results.value.length && !loading.value) void search(val)
-}, { immediate: true })
 
 function selectEmail(id: string) {
   router.push({ path: '/mail/search', query: { q: q.value, id } })

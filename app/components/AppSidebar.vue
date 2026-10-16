@@ -121,34 +121,18 @@ const panelIsLoading = computed(() =>
   isSearchMode.value ? searchLoading.value : panelLoading.value,
 )
 
-// ── Search ────────────────────────────────────────────────────────────────────
+// ── Search (debounced commit is owned by the layout via useDebouncedMailSearch) ─
 const {
   query: searchQuery,
   results: searchResults,
   total: searchTotal,
   loading: searchLoading,
   error: searchError,
-  search,
 } = useSearch()
 
+const { searchNow } = useDebouncedMailSearch(350)
+
 const isSearchMode = computed(() => route.path === '/mail/search')
-
-function onSearch() {
-  const q = searchQuery.value.trim()
-  if (!q) return
-  closeMobileSidebar()
-  void router.push({ path: '/mail/search', query: { q } })
-  void search(q)
-}
-
-// Keep the input in sync when landing via URL / back navigation
-watch(
-  () => route.query.q,
-  (q) => {
-    if (typeof q === 'string' && q !== searchQuery.value) searchQuery.value = q
-  },
-  { immediate: true },
-)
 
 function openCompose() {
   closeMobileSidebar()
@@ -327,7 +311,8 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
           type="search"
           class="bg-background h-8 w-full shadow-none"
           placeholder="Type to search..."
-          @keydown.enter.prevent="onSearch"
+          autocomplete="off"
+          @keydown.enter.prevent="searchNow"
         />
       </SidebarHeader>
 

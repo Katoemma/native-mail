@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search, X, LogOut, BadgeCheck, Bell } from '@lucide/vue'
+import { LogOut, BadgeCheck, Bell, SquarePen } from '@lucide/vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import MailCompose from '@/components/mail/MailCompose.vue'
 import {
@@ -34,16 +34,17 @@ import {
 
 const mailboxesStore = useMailboxesStore()
 const sessionStore = useSessionStore()
+const composer = useComposerStore()
 const route = useRoute()
-const router = useRouter()
-const { query: searchQuery, search } = useSearch()
 
-// Start WebSocket sync at layout level — persists across page navigations
 const { setupFocusSync } = useSync()
 onMounted(async () => {
   await mailboxesStore.fetch()
   setupFocusSync()
 })
+
+// Debounced search lives here so mobile header + desktop sidebar share one watcher
+const { query: searchQuery, searchNow } = useDebouncedMailSearch(350)
 
 const mailboxLabel = computed(() => {
   if (route.path === '/mail/search') return 'Search'
@@ -68,25 +69,14 @@ const initials = computed(() => {
   return label.slice(0, 2).toUpperCase() || 'U'
 })
 
-const searchOpen = ref(false)
-const mobileSearch = ref('')
+const showComposeFab = computed(() =>
+  route.path === '/mail/inbox'
+  && !route.query.id
+  && !composer.open,
+)
 
-watch(searchOpen, (open) => {
-  if (open) {
-    mobileSearch.value = typeof route.query.q === 'string' ? route.query.q : searchQuery.value
-  }
-})
-
-function closeMobileSearch() {
-  searchOpen.value = false
-}
-
-function submitMobileSearch() {
-  const q = mobileSearch.value.trim()
-  if (!q) return
-  searchOpen.value = false
-  void router.push({ path: '/mail/search', query: { q } })
-  void search(q)
+function openCompose() {
+  composer.openCompose()
 }
 </script>
 
@@ -99,30 +89,8 @@ function submitMobileSearch() {
     <AppSidebar />
 
     <SidebarInset class="flex flex-col overflow-hidden h-svh">
-      <!-- Sticky top header with sidebar trigger + breadcrumb -->
-      <header class="bg-background sticky top-0 flex shrink-0 items-center gap-2 border-b px-4 py-3 md:p-4">
-        <template v-if="searchOpen">
-          <button
-            type="button"
-            class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted md:hidden"
-            aria-label="Close search"
-            @click="closeMobileSearch"
-          >
-            <X class="size-4" :stroke-width="1.75" />
-          </button>
-          <form class="flex flex-1 min-w-0 md:hidden" @submit.prevent="submitMobileSearch">
-            <Input
-              v-model="mobileSearch"
-              type="search"
-              placeholder="Search mail..."
-              class="h-8 bg-background shadow-none"
-              enterkeyhint="search"
-              autofocus
-            />
-          </form>
-        </template>
-
-        <template v-else>
+      <header class="bg-background sticky top-0 z-20 flex shrink-0 flex-col gap-2 border-b px-4 py-3 md:gap-0 md:p-4">
+        <div class="flex items-center gap-2">
           <SidebarTrigger class="-ml-1" />
           <Separator
             orientation="vertical"
@@ -142,17 +110,7 @@ function submitMobileSearch() {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <!-- Mobile: search + profile in the header trailing space -->
-          <div class="ml-auto flex items-center gap-0.5 md:hidden">
-            <button
-              type="button"
-              class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Search"
-              @click="searchOpen = true"
-            >
-              <Search class="size-4" :stroke-width="1.75" />
-            </button>
-
+          <div class="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
                 <button
@@ -207,16 +165,35 @@ function submitMobileSearch() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </template>
+        </div>
+
+        <form class="md:hidden" @submit.prevent="searchNow">
+          <Input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search mail..."
+            class="h-9 border-0 bg-muted/40 shadow-none"
+            enterkeyhint="search"
+            autocomplete="off"
+          />
+        </form>
       </header>
 
-      <!-- Page content injected here — full height, no padding, for the email viewer -->
-      <div class="flex flex-1 w-full overflow-hidden">
+      <div class="relative flex flex-1 w-full overflow-hidden">
         <slot />
+
+        <button
+          v-if="showComposeFab"
+          type="button"
+          class="absolute bottom-5 right-4 z-30 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition active:scale-95 md:hidden"
+          aria-label="Compose"
+          @click="openCompose"
+        >
+          <SquarePen class="size-6" :stroke-width="1.75" />
+        </button>
       </div>
     </SidebarInset>
 
-    <!-- Floating compose window — available on every mail page -->
     <MailCompose />
   </SidebarProvider>
 </template>
