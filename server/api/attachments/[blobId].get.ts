@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event)
   const name  = typeof query.name === 'string' && query.name ? query.name : 'attachment'
+  const inline = query.inline === '1' || query.inline === 'true'
 
   const jmapSession = await discoverJmapSession(session.tokens.accessToken, session.username)
   const accessToken = await resolveAccessToken(session.tokens, event)
@@ -28,11 +29,12 @@ export default defineEventHandler(async (event) => {
 
   // Safe filename for Content-Disposition (ASCII fallback + UTF-8 filename*)
   const asciiName = name.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_')
+  const disposition = inline || contentType.startsWith('image/') ? 'inline' : 'attachment'
   setHeader(event, 'Content-Type', contentType)
   setHeader(
     event,
     'Content-Disposition',
-    `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+    `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
   )
   setHeader(event, 'Content-Length', String(data.length))
   setHeader(event, 'Cache-Control', 'private, no-store')

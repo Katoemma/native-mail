@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import {
   ArrowLeft, Reply, ReplyAll, Forward,
-  Star, Archive, Trash2,
-  Paperclip, Download,
-  MoreHorizontal,
+  Star, Archive, Trash2, MailOpen,
+  Paperclip, Download, FileText, FileImage, File,
+  MoreHorizontal, ChevronDown, Send, Loader2,
+  Copy, Check,
 } from '@lucide/vue'
-import type { MailMessageFull } from '../../../shared/types'
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip'
+import type { MailAttachment, MailMessageFull } from '../../../shared/types'
 
-const props = defineProps<{ emailId: string }>()
+const props = withDefaults(defineProps<{
+  emailId: string
+  /** Compact mode when nested inside a thread accordion */
+  inline?: boolean
+}>(), { inline: false })
+
 const emit = defineEmits<{
   back: []
   reply: [emailId: string]
@@ -17,20 +26,23 @@ const emit = defineEmits<{
 
 const mailStore      = useMailStore()
 const mailboxesStore = useMailboxesStore()
+const composer       = useComposerStore()
 
-const email   = computed<MailMessageFull | null>(() => mailStore.fullEmails[props.emailId] ?? null)
-const error   = computed(() => mailStore.emailError)
+const email      = computed<MailMessageFull | null>(() => mailStore.fullEmails[props.emailId] ?? null)
+const error      = computed(() => mailStore.emailError)
 const isFetching = ref(true)
-const visible    = ref(false)   // drives entry animation
+const visible    = ref(false)
 
 async function loadEmail(id: string) {
   isFetching.value = true
   visible.value    = false
+  quoteExpanded.value = false
+  replyOpen.value = false
+  replyBody.value = ''
   await mailStore.fetchOne(id)
   const e = mailStore.fullEmails[id]
   if (e && !e.isRead) mailStore.markRead(id, true)
   isFetching.value = false
-  // tiny delay so CSS transition starts after paint
   requestAnimationFrame(() => { visible.value = true })
 }
 
@@ -48,7 +60,36 @@ async function archive() {
   if (archiveId) { await mailStore.move(props.emailId, archiveId); emit('back') }
 }
 
-// ── Formatting helpers ────────────────────────────────────────────────────────
+async function markUnread() {
+  await mailStore.markRead(props.emailId, false)
+  emit('back')
+}
+
+const copied = ref(false)
+async function copyAddress(addr: string) {
+  try {
+    await navigator.clipboard.writeText(addr)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 1500)
+  }
+  catch { /* ignore */ }
+}
+
+// ── Relative time ────────────────────────────────────────────────────────────
+function formatRelative(iso: string | null) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const diff = Date.now() - d.getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
 function formatDateFull(iso: string | null) {
   if (!iso) return ''
   return new Date(iso).toLocaleString([], {
@@ -57,12 +98,13 @@ function formatDateFull(iso: string | null) {
   })
 }
 
+// ── Sender helpers ───────────────────────────────────────────────────────────
 function senderInitials(from: { name?: string | null; email: string }[]) {
   const f = from[0]
   if (!f) return '?'
   const n = f.name?.trim()
   if (n) {
-    const parts = n.split(' ')
+    const parts = n.split(/\s+/)
     return parts.length >= 2
       ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
       : n.slice(0, 2).toUpperCase()
@@ -80,7 +122,18 @@ function senderEmail(from: { name?: string | null; email: string }[]) {
 }
 
 function formatRecipients(list: { name?: string | null; email: string }[]) {
-  return list.map(a => a.name?.trim() ? `${a.name} <${a.email}>` : a.email).join(', ')
+  return list.map(a => a.name?.trim() ? `${a.name}` : a.email).join(', ')
+}
+
+/** Deterministic soft avatar color from email address */
+function avatarStyle(emailAddr: string) {
+  let hash = 0
+  for (let i = 0; i < emailAddr.length; i++) hash = emailAddr.charCodeAt(i) + ((hash << 5) - hash)
+  const hue = Math.abs(hash) % 360
+  return {
+    backgroundColor: `oklch(0.92 0.04 ${hue})`,
+    color: `oklch(0.45 0.12 ${hue})`,
+  }
 }
 
 function formatSize(bytes: number) {
@@ -89,299 +142,563 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-// Show full recipients toggle
-const showDetails = ref(false)
+function isImage(att: MailAttachment) {
+  return att.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.name)
+}
+
+function previewUrl(att: MailAttachment) {
+  const url = new URL(att.downloadUrl, 'http://local')
+  url.searchParams.set('inline', '1')
+  return `${url.pathname}?${url.searchParams.toString()}`
+}
+
+function fileIcon(att: MailAttachment) {
+  if (isImage(att)) return FileImage
+  if (/pdf|text|doc|sheet|csv/i.test(att.type) || /\.(pdf|txt|docx?|xlsx?|csv)$/i.test(att.name)) return FileText
+  return File
+}
+
+// ── Quote collapsing ─────────────────────────────────────────────────────────
+const quoteExpanded = ref(false)
+const showDetails   = ref(false)
+
+const plainParts = computed(() => {
+  const text = email.value?.textBody
+  if (!text || email.value?.htmlBody) return null
+
+  // Split on "On … wrote:" or a run of quoted lines
+  const onWrote = /\n(?=On .+ wrote:\s*\n)/
+  const idx = text.search(onWrote)
+  if (idx > 0) {
+    return { main: text.slice(0, idx).trim(), quote: text.slice(idx).trim() }
+  }
+
+  const lines = text.split('\n')
+  let quoteStart = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (/^>/.test(lines[i])) { quoteStart = i; break }
+  }
+  if (quoteStart > 0) {
+    return {
+      main:  lines.slice(0, quoteStart).join('\n').trim(),
+      quote: lines.slice(quoteStart).join('\n').trim(),
+    }
+  }
+  return { main: text, quote: '' }
+})
+
+const htmlHasQuote = computed(() => {
+  const html = email.value?.htmlBody
+  if (!html) return false
+  return /<blockquote/i.test(html) || /gmail_quote|yahoo_quoted|OutlookMessageHeader/i.test(html)
+})
+
+// ── Inline quick reply ───────────────────────────────────────────────────────
+const replyOpen   = ref(false)
+const replyBody   = ref('')
+const replySending = ref(false)
+const replyError  = ref<string | null>(null)
+const replyBox    = ref<HTMLTextAreaElement | null>(null)
+
+function openQuickReply() {
+  replyOpen.value = true
+  replyError.value = null
+  nextTick(() => replyBox.value?.focus())
+}
+
+function expandFullReply() {
+  emit('reply', props.emailId)
+}
+
+async function sendQuickReply() {
+  if (!email.value || !replyBody.value.trim() || replySending.value) return
+  replySending.value = true
+  replyError.value = null
+  try {
+    await composer.quickReply(
+      {
+        id: email.value.id,
+        threadId: email.value.threadId,
+        from: email.value.from,
+        subject: email.value.subject,
+      },
+      replyBody.value,
+    )
+    replyBody.value = ''
+    replyOpen.value = false
+  }
+  catch (err: unknown) {
+    replyError.value = (err as { data?: { statusMessage?: string } })?.data?.statusMessage
+      ?? (err instanceof Error ? err.message : 'Send failed')
+  }
+  finally {
+    replySending.value = false
+  }
+}
+
+function onReplyKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault()
+    sendQuickReply()
+  }
+  if (e.key === 'Escape') {
+    replyOpen.value = false
+  }
+}
+
+const imageAttachments = computed(() =>
+  (email.value?.attachments ?? []).filter(isImage),
+)
+const otherAttachments = computed(() =>
+  (email.value?.attachments ?? []).filter(a => !isImage(a)),
+)
 </script>
 
 <template>
-  <div class="flex flex-col h-full w-full overflow-hidden bg-background">
-
-    <!-- ── Toolbar ──────────────────────────────────────────────────────── -->
-    <div class="flex items-center gap-1 px-3 py-2 border-b shrink-0 bg-background/80 backdrop-blur-sm">
-      <!-- Back -->
-      <button
-        class="inline-flex items-center gap-1.5 px-2 md:px-2.5 h-8 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-95"
-        aria-label="Back"
-        @click="emit('back')"
-      >
-        <ArrowLeft class="size-4 shrink-0" />
-        <span class="hidden md:inline">Back</span>
-      </button>
-
-      <div class="flex-1" />
-
-      <template v-if="email">
-        <!-- Reply / Reply all / Forward -->
-        <div class="flex items-center gap-0.5 rounded-lg border bg-muted/40 px-1 py-1">
-          <button
-            class="inline-flex items-center gap-1.5 px-2 md:px-2.5 h-7 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
-            @click="emit('reply', emailId)"
-          >
-            <Reply class="size-3.5 shrink-0" />
-            <span class="hidden md:inline">Reply</span>
-          </button>
-          <button
-            class="inline-flex items-center gap-1.5 px-2 md:px-2.5 h-7 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
-            @click="emit('replyAll', emailId)"
-          >
-            <ReplyAll class="size-3.5 shrink-0" />
-            <span class="hidden md:inline">Reply all</span>
-          </button>
-          <button
-            class="inline-flex items-center gap-1.5 px-2 md:px-2.5 h-7 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-95"
-            @click="emit('forward', emailId)"
-          >
-            <Forward class="size-3.5 shrink-0" />
-            <span class="hidden md:inline">Forward</span>
-          </button>
-        </div>
-
-        <div class="w-px h-4 bg-border mx-1" />
-
-        <!-- Star -->
-        <button
-          class="inline-flex items-center gap-1.5 px-2 md:px-2.5 h-8 rounded-md text-sm transition-colors duration-150 active:scale-95"
-          :class="email.isStarred
-            ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted'"
-          @click="mailStore.markStarred(emailId, !email.isStarred)"
-        >
-          <Star :class="['size-4 shrink-0', email.isStarred && 'fill-amber-400']" />
-          <span class="hidden md:inline">{{ email.isStarred ? 'Starred' : 'Star' }}</span>
-        </button>
-
-        <!-- Archive -->
-        <button
-          class="inline-flex items-center gap-1.5 px-2 md:px-2.5 h-8 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-95"
-          @click="archive"
-        >
-          <Archive class="size-4 shrink-0" />
-          <span class="hidden md:inline">Archive</span>
-        </button>
-
-        <!-- Trash -->
-        <button
-          class="inline-flex items-center gap-1.5 px-2 md:px-2.5 h-8 rounded-md text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150 active:scale-95"
-          @click="trash"
-        >
-          <Trash2 class="size-4 shrink-0" />
-          <span class="hidden md:inline">Trash</span>
-        </button>
-      </template>
-    </div>
-
-    <!-- ── Loading skeleton ─────────────────────────────────────────────── -->
-    <div v-if="isFetching" class="flex-1 overflow-y-auto">
-      <div class="w-full px-8 py-8 space-y-6 animate-pulse">
-        <div class="h-6 w-2/3 rounded-lg bg-muted" />
-        <div class="flex items-center gap-3">
-          <div class="size-10 rounded-full bg-muted shrink-0" />
-          <div class="space-y-2 flex-1">
-            <div class="h-3.5 w-32 rounded bg-muted" />
-            <div class="h-3 w-48 rounded bg-muted" />
-          </div>
-          <div class="h-3 w-24 rounded bg-muted" />
-        </div>
-        <div class="space-y-3 pt-4">
-          <div class="h-3 w-full rounded bg-muted" />
-          <div class="h-3 w-5/6 rounded bg-muted" />
-          <div class="h-3 w-4/6 rounded bg-muted" />
-          <div class="h-3 w-full rounded bg-muted" />
-          <div class="h-3 w-3/6 rounded bg-muted" />
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Error ────────────────────────────────────────────────────────── -->
-    <div v-else-if="error" class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
-      <div class="size-12 rounded-full bg-destructive/10 flex items-center justify-center">
-        <span class="text-destructive text-xl">!</span>
-      </div>
-      <p class="text-sm font-medium text-foreground">Failed to load email</p>
-      <p class="text-xs text-muted-foreground max-w-xs">{{ error }}</p>
-      <button
-        class="mt-2 text-xs text-primary hover:underline"
-        @click="loadEmail(emailId)"
-      >
-        Try again
-      </button>
-    </div>
-
-    <!-- ── Email content ────────────────────────────────────────────────── -->
+  <TooltipProvider :delay-duration="400">
     <div
-      v-else-if="email"
       :class="[
-        'flex-1 overflow-y-auto transition-all duration-300',
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
+        'flex flex-col overflow-hidden bg-background',
+        inline ? 'h-auto' : 'h-full w-full',
       ]"
     >
-      <div class="w-full px-8 py-8">
-
-        <!-- Subject -->
-        <h1 class="text-2xl font-semibold tracking-tight text-foreground leading-snug mb-6">
-          {{ email.subject }}
-        </h1>
-
-        <!-- Sender card -->
-        <div class="flex items-start gap-3 mb-1">
-          <!-- Avatar -->
-          <div
-            class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold shrink-0 select-none"
-          >
-            {{ senderInitials(email.from) }}
-          </div>
-
-          <!-- Sender info + date -->
-          <div class="flex-1 min-w-0">
-            <div class="flex items-baseline gap-2 flex-wrap">
-              <span class="font-semibold text-sm text-foreground">{{ senderName(email.from) }}</span>
-              <span class="text-xs text-muted-foreground">&lt;{{ senderEmail(email.from) }}&gt;</span>
-              <span class="ml-auto text-xs text-muted-foreground shrink-0 whitespace-nowrap">
-                {{ formatDateFull(email.receivedAt) }}
-              </span>
-            </div>
-
-            <!-- To/Cc collapsed by default -->
+      <!-- ── Toolbar (hidden in inline/thread mode) ──────────────────────── -->
+      <div
+        v-if="!inline"
+        class="flex items-center gap-0.5 px-2 sm:px-3 py-1.5 border-b shrink-0 bg-background/90 backdrop-blur-md sticky top-0 z-10"
+      >
+        <Tooltip>
+          <TooltipTrigger as-child>
             <button
-              class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-0.5 group"
-              @click="showDetails = !showDetails"
+              class="inline-flex items-center gap-1.5 px-2 h-8 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
+              aria-label="Back"
+              @click="emit('back')"
             >
-              <span>To: {{ formatRecipients(email.to) }}</span>
-              <MoreHorizontal class="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ArrowLeft class="size-4 shrink-0" />
             </button>
+          </TooltipTrigger>
+          <TooltipContent>Back</TooltipContent>
+        </Tooltip>
 
-            <!-- Expanded recipient details -->
-            <div
-              v-if="showDetails"
-              class="mt-2 space-y-1 text-xs text-muted-foreground border rounded-lg p-3 bg-muted/30"
-            >
-              <div v-if="email.from.length">
-                <span class="font-medium text-foreground w-8 inline-block">From:</span>
-                {{ formatRecipients(email.from) }}
-              </div>
-              <div v-if="email.to.length">
-                <span class="font-medium text-foreground w-8 inline-block">To:</span>
-                {{ formatRecipients(email.to) }}
-              </div>
-              <div v-if="email.cc.length">
-                <span class="font-medium text-foreground w-8 inline-block">Cc:</span>
-                {{ formatRecipients(email.cc) }}
-              </div>
-              <div v-if="email.replyTo?.length">
-                <span class="font-medium text-foreground w-8 inline-block">Reply-To:</span>
-                {{ formatRecipients(email.replyTo) }}
-              </div>
-              <div>
-                <span class="font-medium text-foreground w-8 inline-block">Date:</span>
-                {{ formatDateFull(email.receivedAt) }}
-              </div>
+        <div class="flex-1" />
+
+        <template v-if="email">
+          <div class="flex items-center gap-0.5 rounded-xl border bg-muted/30 p-0.5">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  class="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-[0.97]"
+                  @click="emit('reply', emailId)"
+                >
+                  <Reply class="size-3.5 shrink-0" />
+                  <span class="hidden sm:inline text-xs">Reply</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Reply</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  class="inline-flex items-center justify-center size-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-[0.97]"
+                  @click="emit('replyAll', emailId)"
+                >
+                  <ReplyAll class="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Reply all</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  class="inline-flex items-center justify-center size-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background transition-colors duration-150 active:scale-[0.97]"
+                  @click="emit('forward', emailId)"
+                >
+                  <Forward class="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Forward</TooltipContent>
+            </Tooltip>
+          </div>
+
+          <div class="w-px h-4 bg-border mx-1.5" />
+
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <button
+                class="inline-flex items-center justify-center size-8 rounded-lg transition-colors duration-150 active:scale-[0.97]"
+                :class="email.isStarred
+                  ? 'text-amber-500 hover:bg-amber-500/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'"
+                @click="mailStore.markStarred(emailId, !email.isStarred)"
+              >
+                <Star :class="['size-4', email.isStarred && 'fill-amber-400']" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{{ email.isStarred ? 'Unstar' : 'Star' }}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <button
+                class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
+                @click="markUnread"
+              >
+                <MailOpen class="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Mark unread</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <button
+                class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
+                @click="archive"
+              >
+                <Archive class="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Archive</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <button
+                class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150 active:scale-[0.97]"
+                @click="trash"
+              >
+                <Trash2 class="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Trash</TooltipContent>
+          </Tooltip>
+        </template>
+      </div>
+
+      <!-- ── Loading ────────────────────────────────────────────────────── -->
+      <div v-if="isFetching" class="flex-1 overflow-y-auto">
+        <div class="w-full max-w-3xl mx-auto px-6 py-8 space-y-6 animate-pulse">
+          <div class="h-7 w-2/3 rounded-lg bg-muted" />
+          <div class="flex items-center gap-3">
+            <div class="size-11 rounded-full bg-muted shrink-0" />
+            <div class="space-y-2 flex-1">
+              <div class="h-3.5 w-36 rounded bg-muted" />
+              <div class="h-3 w-52 rounded bg-muted" />
             </div>
           </div>
-        </div>
-
-        <!-- Divider -->
-        <div class="border-t my-6" />
-
-        <!-- Body -->
-        <div class="email-body">
-          <!-- HTML email -->
-          <div
-            v-if="email.htmlBody"
-            class="prose prose-sm dark:prose-invert w-full max-w-none text-foreground
-                   prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                   prose-img:rounded-lg prose-img:max-w-full"
-            v-html="email.htmlBody"
-          />
-          <!-- Plain text -->
-          <pre
-            v-else-if="email.textBody"
-            class="whitespace-pre-wrap font-sans text-sm leading-7 text-foreground"
-          >{{ email.textBody }}</pre>
-          <p v-else class="text-sm text-muted-foreground italic">
-            (This message has no readable content)
-          </p>
-        </div>
-
-        <!-- Attachments -->
-        <div v-if="email.attachments?.length" class="mt-8 pt-6 border-t">
-          <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-            <Paperclip class="size-3.5" />
-            {{ email.attachments.length }} Attachment{{ email.attachments.length > 1 ? 's' : '' }}
-          </p>
-          <div class="flex flex-wrap gap-2">
-            <a
-              v-for="att in email.attachments"
-              :key="att.blobId"
-              :href="att.downloadUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="group inline-flex items-center gap-2.5 rounded-xl border bg-muted/30
-                     hover:bg-muted hover:border-border/80
-                     px-3.5 py-2.5 transition-all duration-150 active:scale-98 no-underline"
-            >
-              <!-- File type icon area -->
-              <div class="size-8 rounded-lg bg-background border flex items-center justify-center shrink-0">
-                <Download class="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </div>
-              <div class="min-w-0">
-                <p class="text-xs font-medium text-foreground truncate max-w-[140px]">{{ att.name }}</p>
-                <p class="text-[11px] text-muted-foreground">{{ formatSize(att.size) }}</p>
-              </div>
-            </a>
+          <div class="space-y-2.5 pt-2">
+            <div class="h-3 w-full rounded bg-muted" />
+            <div class="h-3 w-5/6 rounded bg-muted" />
+            <div class="h-3 w-4/6 rounded bg-muted" />
           </div>
         </div>
+      </div>
 
-        <!-- Quick reply nudge -->
-        <div class="mt-10 pt-6 border-t">
-          <button
-            class="w-full flex items-center gap-3 rounded-xl border border-dashed px-4 py-3
-                   text-sm text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/30
-                   transition-all duration-150 group"
-            @click="emit('reply', emailId)"
+      <!-- ── Error ──────────────────────────────────────────────────────── -->
+      <div v-else-if="error" class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
+        <div class="size-12 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span class="text-destructive text-xl font-medium">!</span>
+        </div>
+        <p class="text-sm font-medium">Failed to load email</p>
+        <p class="text-xs text-muted-foreground max-w-xs">{{ error }}</p>
+        <button class="mt-1 text-xs text-primary hover:underline" @click="loadEmail(emailId)">
+          Try again
+        </button>
+      </div>
+
+      <!-- ── Content ────────────────────────────────────────────────────── -->
+      <div
+        v-else-if="email"
+        :class="[
+          'flex-1 overflow-y-auto transition-opacity duration-200 ease-out',
+          visible ? 'opacity-100' : 'opacity-0',
+        ]"
+      >
+        <div :class="['w-full mx-auto', inline ? 'px-0 py-2' : 'max-w-3xl px-5 sm:px-8 py-6 sm:py-8']">
+
+          <!-- Subject -->
+          <h1
+            v-if="!inline"
+            class="text-[1.35rem] sm:text-2xl font-semibold tracking-tight text-foreground leading-snug mb-5 text-balance"
           >
-            <div class="size-7 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
-              <Reply class="size-3.5 group-hover:text-primary transition-colors" />
-            </div>
-            <span>Reply to {{ senderName(email.from) }}…</span>
-          </button>
-        </div>
+            {{ email.subject || '(no subject)' }}
+          </h1>
 
+          <!-- Sender row -->
+          <div class="flex items-start gap-3 mb-5">
+            <div
+              class="size-11 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 select-none ring-1 ring-black/5"
+              :style="avatarStyle(senderEmail(email.from))"
+            >
+              {{ senderInitials(email.from) }}
+            </div>
+
+            <div class="flex-1 min-w-0 pt-0.5">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-sm text-foreground">{{ senderName(email.from) }}</span>
+                <button
+                  class="group inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  :title="senderEmail(email.from)"
+                  @click="copyAddress(senderEmail(email.from))"
+                >
+                  <span class="truncate max-w-[200px]">{{ senderEmail(email.from) }}</span>
+                  <Check v-if="copied" class="size-3 text-emerald-500" />
+                  <Copy v-else class="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <time
+                      class="ml-auto text-xs text-muted-foreground shrink-0 tabular-nums"
+                      :datetime="email.receivedAt ?? undefined"
+                    >
+                      {{ formatRelative(email.receivedAt) }}
+                    </time>
+                  </TooltipTrigger>
+                  <TooltipContent>{{ formatDateFull(email.receivedAt) }}</TooltipContent>
+                </Tooltip>
+              </div>
+
+              <button
+                class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+                @click="showDetails = !showDetails"
+              >
+                <span class="truncate">To {{ formatRecipients(email.to) }}</span>
+                <ChevronDown
+                  :class="['size-3.5 shrink-0 transition-transform duration-200', showDetails && 'rotate-180']"
+                />
+              </button>
+
+              <div
+                v-if="showDetails"
+                class="mt-2.5 space-y-1.5 text-xs text-muted-foreground rounded-xl border bg-muted/40 p-3 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+              >
+                <div class="grid grid-cols-[3.5rem_1fr] gap-x-2 gap-y-1.5">
+                  <span class="font-medium text-foreground">From</span>
+                  <span class="break-all">{{ email.from.map(a => a.email).join(', ') }}</span>
+                  <span class="font-medium text-foreground">To</span>
+                  <span class="break-all">{{ email.to.map(a => a.email).join(', ') }}</span>
+                  <template v-if="email.cc.length">
+                    <span class="font-medium text-foreground">Cc</span>
+                    <span class="break-all">{{ email.cc.map(a => a.email).join(', ') }}</span>
+                  </template>
+                  <span class="font-medium text-foreground">Date</span>
+                  <span>{{ formatDateFull(email.receivedAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="email-body">
+            <!-- HTML -->
+            <template v-if="email.htmlBody">
+              <div
+                class="prose prose-sm dark:prose-invert w-full max-w-none text-foreground
+                       prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                       prose-img:rounded-xl prose-img:max-w-full"
+                :class="!quoteExpanded && htmlHasQuote && 'quote-collapsed'"
+                v-html="email.htmlBody"
+              />
+              <button
+                v-if="htmlHasQuote"
+                class="mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs text-muted-foreground
+                       hover:text-foreground hover:bg-muted transition-colors duration-150"
+                @click="quoteExpanded = !quoteExpanded"
+              >
+                <MoreHorizontal class="size-3.5" />
+                {{ quoteExpanded ? 'Hide quoted text' : 'Show quoted text' }}
+              </button>
+            </template>
+
+            <!-- Plain text with quote split -->
+            <template v-else-if="plainParts">
+              <pre class="whitespace-pre-wrap font-sans text-sm leading-7 text-foreground">{{ plainParts.main }}</pre>
+              <template v-if="plainParts.quote">
+                <button
+                  class="mt-3 mb-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs text-muted-foreground
+                         hover:text-foreground hover:bg-muted transition-colors duration-150"
+                  @click="quoteExpanded = !quoteExpanded"
+                >
+                  <MoreHorizontal class="size-3.5" />
+                  {{ quoteExpanded ? 'Hide quoted text' : 'Show quoted text' }}
+                </button>
+                <pre
+                  v-if="quoteExpanded"
+                  class="whitespace-pre-wrap font-sans text-sm leading-7 text-muted-foreground border-l-2 border-border pl-4 mt-2 animate-in fade-in-0 duration-150"
+                >{{ plainParts.quote }}</pre>
+              </template>
+            </template>
+
+            <p v-else class="text-sm text-muted-foreground italic">
+              (This message has no readable content)
+            </p>
+          </div>
+
+          <!-- Image attachment previews -->
+          <div v-if="imageAttachments.length" class="mt-8 space-y-3">
+            <p class="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <FileImage class="size-3.5" />
+              {{ imageAttachments.length }} image{{ imageAttachments.length > 1 ? 's' : '' }}
+            </p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <a
+                v-for="att in imageAttachments"
+                :key="att.blobId"
+                :href="att.downloadUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="group relative aspect-[4/3] rounded-xl border overflow-hidden bg-muted/40
+                       hover:ring-2 hover:ring-primary/30 transition-all duration-150"
+              >
+                <img
+                  :src="previewUrl(att)"
+                  :alt="att.name"
+                  class="size-full object-cover"
+                  loading="lazy"
+                >
+                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 pt-6
+                            opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <p class="text-[11px] text-white truncate">{{ att.name }}</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <!-- Other attachments -->
+          <div v-if="otherAttachments.length" class="mt-6">
+            <p class="text-xs font-medium text-muted-foreground mb-2.5 flex items-center gap-1.5">
+              <Paperclip class="size-3.5" />
+              {{ otherAttachments.length }} file{{ otherAttachments.length > 1 ? 's' : '' }}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <a
+                v-for="att in otherAttachments"
+                :key="att.blobId"
+                :href="att.downloadUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="group inline-flex items-center gap-2.5 rounded-xl border bg-muted/20
+                       hover:bg-muted/60 hover:border-border
+                       px-3 py-2.5 transition-colors duration-150 no-underline max-w-full"
+              >
+                <div class="size-9 rounded-lg bg-background border flex items-center justify-center shrink-0">
+                  <component :is="fileIcon(att)" class="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs font-medium text-foreground truncate max-w-[160px]">{{ att.name }}</p>
+                  <p class="text-[11px] text-muted-foreground flex items-center gap-1">
+                    {{ formatSize(att.size) }}
+                    <Download class="size-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <!-- Single image that was the only attachment still shown above; if only images, skip duplicate paperclip section — handled -->
+
+          <!-- Inline quick reply -->
+          <div v-if="!inline" class="mt-10 pt-2">
+            <div
+              v-if="!replyOpen"
+              class="rounded-2xl border border-dashed border-border/80 bg-muted/20
+                     hover:bg-muted/40 hover:border-border transition-colors duration-150"
+            >
+              <button
+                class="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-muted-foreground hover:text-foreground text-left"
+                @click="openQuickReply"
+              >
+                <div
+                  class="size-8 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ring-1 ring-black/5"
+                  :style="avatarStyle(senderEmail(email.from))"
+                >
+                  {{ senderInitials(email.from).charAt(0) }}
+                </div>
+                <span class="flex-1">Reply to {{ senderName(email.from).split(' ')[0] }}…</span>
+                <kbd class="hidden sm:inline text-[10px] text-muted-foreground/70 border rounded px-1.5 py-0.5 font-sans">R</kbd>
+              </button>
+            </div>
+
+            <div
+              v-else
+              class="rounded-2xl border bg-background shadow-sm ring-1 ring-black/5 overflow-hidden
+                     animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+            >
+              <div class="flex items-center gap-2 px-4 py-2.5 border-b bg-muted/30 text-xs text-muted-foreground">
+                <Reply class="size-3.5" />
+                <span>Replying to <span class="font-medium text-foreground">{{ senderName(email.from) }}</span></span>
+                <button
+                  class="ml-auto text-xs hover:text-foreground transition-colors"
+                  @click="expandFullReply"
+                >
+                  Open full composer
+                </button>
+              </div>
+              <textarea
+                ref="replyBox"
+                v-model="replyBody"
+                rows="4"
+                placeholder="Write your reply…"
+                class="w-full resize-none bg-transparent px-4 py-3 text-sm leading-6 outline-none placeholder:text-muted-foreground/60"
+                @keydown="onReplyKeydown"
+              />
+              <div class="flex items-center gap-2 px-3 py-2.5 border-t bg-muted/20">
+                <p v-if="replyError" class="text-xs text-destructive flex-1 truncate">{{ replyError }}</p>
+                <p v-else class="text-[11px] text-muted-foreground flex-1 hidden sm:block">
+                  <kbd class="border rounded px-1 py-0.5 font-sans">⌘</kbd>
+                  <kbd class="border rounded px-1 py-0.5 font-sans ml-0.5">Enter</kbd>
+                  to send · Esc to cancel
+                </p>
+                <button
+                  class="text-xs text-muted-foreground hover:text-foreground px-2.5 h-8 rounded-lg hover:bg-muted transition-colors"
+                  @click="replyOpen = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground
+                         px-3.5 h-8 text-xs font-medium
+                         hover:opacity-90 disabled:opacity-40 transition-opacity active:scale-[0.97]"
+                  :disabled="!replyBody.trim() || replySending"
+                  @click="sendQuickReply"
+                >
+                  <Loader2 v-if="replySending" class="size-3.5 animate-spin" />
+                  <Send v-else class="size-3.5" />
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
-
-  </div>
+  </TooltipProvider>
 </template>
 
 <style scoped>
-/* Smooth entry animation */
-.translate-y-1 {
-  --tw-translate-y: 4px;
+/* Collapse quoted HTML (Gmail / Outlook / blockquote) until expanded */
+.quote-collapsed :deep(blockquote),
+.quote-collapsed :deep(.gmail_quote),
+.quote-collapsed :deep(.yahoo_quoted),
+.quote-collapsed :deep(#divRplyFwdMsg),
+.quote-collapsed :deep(.OutlookMessageHeader) {
+  display: none;
 }
 
-/* Active scale for action buttons */
-.active\:scale-95:active {
-  transform: scale(0.95);
-}
-
-.active\:scale-98:active {
-  transform: scale(0.98);
-}
-
-/* Email body isolation — prevent external styles leaking in */
 .email-body :deep(img) {
   max-width: 100%;
   height: auto;
 }
 
 .email-body :deep(a) {
-  word-break: break-all;
+  word-break: break-word;
 }
 
-/* Quoted reply styling */
 .email-body :deep(blockquote) {
-  border-left: 3px solid hsl(var(--border));
+  border-left: 3px solid var(--border);
   padding-left: 1rem;
-  color: hsl(var(--muted-foreground));
+  color: var(--muted-foreground);
   margin: 1rem 0;
 }
 </style>
