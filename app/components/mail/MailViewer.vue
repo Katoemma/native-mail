@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import type { MailAttachment, MailMessageFull } from '../../../shared/types'
+import { enhanceHtmlLinks, linkifyPlainText } from '~/utils/linkify'
 
 const props = withDefaults(defineProps<{
   emailId: string
@@ -244,6 +245,19 @@ const plainParts = computed(() => {
     }
   }
   return { main: text, quote: '' }
+})
+
+const plainMainHtml = computed(() =>
+  plainParts.value?.main ? linkifyPlainText(plainParts.value.main) : '',
+)
+const plainQuoteHtml = computed(() =>
+  plainParts.value?.quote ? linkifyPlainText(plainParts.value.quote) : '',
+)
+
+const safeHtmlBody = computed(() => {
+  const html = email.value?.htmlBody
+  if (!html) return ''
+  return enhanceHtmlLinks(html)
 })
 
 const htmlHasQuote = computed(() => {
@@ -574,10 +588,10 @@ const otherAttachments = computed(() =>
             <template v-if="email.htmlBody">
               <div
                 class="prose prose-sm dark:prose-invert w-full max-w-none text-foreground
-                       prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                       prose-img:rounded-xl prose-img:max-w-full"
+                       prose-a:text-primary prose-a:underline prose-a:underline-offset-2
+                       hover:prose-a:opacity-80 prose-img:rounded-xl prose-img:max-w-full"
                 :class="!quoteExpanded && htmlHasQuote && 'quote-collapsed'"
-                v-html="email.htmlBody"
+                v-html="safeHtmlBody"
               />
               <button
                 v-if="htmlHasQuote"
@@ -590,9 +604,12 @@ const otherAttachments = computed(() =>
               </button>
             </template>
 
-            <!-- Plain text with quote split -->
+            <!-- Plain text with quote split + linkified URLs -->
             <template v-else-if="plainParts">
-              <pre class="whitespace-pre-wrap font-sans text-sm leading-7 text-foreground">{{ plainParts.main }}</pre>
+              <div
+                class="email-plain text-sm leading-7 text-foreground"
+                v-html="plainMainHtml"
+              />
               <template v-if="plainParts.quote">
                 <button
                   class="mt-3 mb-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs text-muted-foreground
@@ -602,10 +619,11 @@ const otherAttachments = computed(() =>
                   <MoreHorizontal class="size-3.5" />
                   {{ quoteExpanded ? 'Hide quoted text' : 'Show quoted text' }}
                 </button>
-                <pre
+                <div
                   v-if="quoteExpanded"
-                  class="whitespace-pre-wrap font-sans text-sm leading-7 text-muted-foreground border-l-2 border-border pl-4 mt-2 animate-in fade-in-0 duration-150"
-                >{{ plainParts.quote }}</pre>
+                  class="email-plain text-sm leading-7 text-muted-foreground border-l-2 border-border pl-4 mt-2 animate-in fade-in-0 duration-150"
+                  v-html="plainQuoteHtml"
+                />
               </template>
             </template>
 
@@ -771,8 +789,18 @@ const otherAttachments = computed(() =>
   height: auto;
 }
 
-.email-body :deep(a) {
+.email-body :deep(a),
+.email-plain :deep(a) {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.email-body :deep(a:hover),
+.email-plain :deep(a:hover) {
+  opacity: 0.85;
 }
 
 .email-body :deep(blockquote) {
