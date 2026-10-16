@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Paperclip, Star } from '@lucide/vue'
 import type { MailMessage } from '../../../shared/types'
+import { avatarStyle, senderInitials } from '~/utils/avatar'
 
 const props = defineProps<{ email: MailMessage; active?: boolean }>()
 const emit = defineEmits<{ click: [id: string]; star: [id: string, val: boolean] }>()
@@ -19,16 +20,16 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-const senderName = computed(() => {
-  const f = props.email.from[0]
-  return f?.name || f?.email || '(unknown)'
-})
+const from = computed(() => props.email.from[0])
+const senderName = computed(() => from.value?.name || from.value?.email || '(unknown)')
+const initials = computed(() => senderInitials(from.value?.name, from.value?.email))
+const avatar = computed(() => avatarStyle(from.value?.email || senderName.value))
 </script>
 
 <template>
   <button
     :class="[
-      'relative w-full min-w-0 overflow-hidden text-left flex flex-col gap-1 px-4 py-3 border-b transition-colors',
+      'relative w-full min-w-0 overflow-hidden text-left flex gap-3 px-4 py-3 border-b transition-colors',
       active
         ? 'bg-accent text-accent-foreground'
         : 'hover:bg-muted/50',
@@ -41,61 +42,68 @@ const senderName = computed(() => {
       class="absolute inset-y-0 left-0 w-0.5 bg-primary"
     />
 
-    <div class="flex min-w-0 items-center gap-2">
-      <span
-        :class="[
-          'size-2 rounded-full shrink-0',
-          email.isRead ? 'bg-transparent' : 'bg-primary',
-        ]"
-      />
-
-      <span
-        :class="[
-          'min-w-0 flex-1 text-sm truncate',
-          email.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
-        ]"
-      >
-        {{ senderName }}
-      </span>
-
-      <!-- Star -->
-      <button
-        class="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
-        :aria-label="email.isStarred ? 'Unstar' : 'Star'"
-        @click.stop="emit('star', email.id, !email.isStarred)"
-      >
-        <Star
-          :class="['size-3.5', email.isStarred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground']"
-        />
-      </button>
-
-      <span
-        :class="[
-          'text-xs shrink-0 tabular-nums',
-          email.isRead ? 'text-muted-foreground' : 'text-foreground/70 font-medium',
-        ]"
-      >
-        {{ formatDate(email.receivedAt) }}
-      </span>
-    </div>
-
+    <!-- Avatar -->
     <div
-      :class="[
-        'min-w-0 text-sm truncate pl-4',
-        email.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground',
-      ]"
+      class="size-10 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold select-none ring-1 ring-black/5"
+      :style="avatar"
+      aria-hidden="true"
     >
-      {{ email.subject || '(no subject)' }}
+      {{ initials }}
     </div>
 
-    <div class="flex min-w-0 items-center gap-1 pl-4">
-      <span
+    <div class="min-w-0 flex-1 flex flex-col gap-0.5">
+      <div class="flex min-w-0 items-center gap-2">
+        <span
+          v-if="!email.isRead"
+          class="size-1.5 rounded-full bg-primary shrink-0"
+        />
+        <span
+          :class="[
+            'min-w-0 flex-1 text-sm truncate',
+            email.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
+          ]"
+        >
+          {{ senderName }}
+        </span>
+
+        <button
+          class="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+          :aria-label="email.isStarred ? 'Unstar' : 'Star'"
+          @click.stop="emit('star', email.id, !email.isStarred)"
+        >
+          <Star
+            :class="['size-3.5', email.isStarred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground']"
+          />
+        </button>
+
+        <span
+          :class="[
+            'text-xs shrink-0 tabular-nums',
+            email.isRead ? 'text-muted-foreground' : 'text-foreground/70 font-medium',
+          ]"
+        >
+          {{ formatDate(email.receivedAt) }}
+        </span>
+      </div>
+
+      <div
         :class="[
-          'min-w-0 flex-1 text-xs truncate',
-          email.isRead ? 'text-muted-foreground/80' : 'text-muted-foreground',
+          'min-w-0 text-sm truncate',
+          email.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground',
         ]"
-      >{{ email.preview }}</span>
-      <Paperclip v-if="email.hasAttachment" class="size-3 text-muted-foreground shrink-0" />
+      >
+        {{ email.subject || '(no subject)' }}
+      </div>
+
+      <div class="flex min-w-0 items-center gap-1">
+        <span
+          :class="[
+            'min-w-0 flex-1 text-xs truncate',
+            email.isRead ? 'text-muted-foreground/80' : 'text-muted-foreground',
+          ]"
+        >{{ email.preview }}</span>
+        <Paperclip v-if="email.hasAttachment" class="size-3 text-muted-foreground shrink-0" />
+      </div>
     </div>
   </button>
 </template>

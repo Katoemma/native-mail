@@ -3,6 +3,7 @@ import {
   Inbox, FilePenLine, SendHorizontal, ShieldAlert, Trash2,
   SquarePen, Star,
 } from '@lucide/vue'
+import { avatarStyle, senderInitials } from '~/utils/avatar'
 import NavUser from '@/components/NavUser.vue'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -44,7 +45,16 @@ const composer       = useComposerStore()
 const router         = useRouter()
 const route          = useRoute()
 
-const { setOpen, isMobile } = useSidebar()
+const { setOpen, setOpenMobile, isMobile } = useSidebar()
+
+function closeMobileSidebar() {
+  if (isMobile.value) setOpenMobile(false)
+}
+
+// Close the mobile drawer after any route change (folder, email, search, etc.)
+watch(() => route.fullPath, () => {
+  closeMobileSidebar()
+})
 
 // ── Nav items — roles map to routes ──────────────────────────────────────────
 const navItems = [
@@ -76,36 +86,38 @@ const panelEmails = computed(() => {
 const panelLoading = computed(() => mailStore.loadingList)
 
 // ── Navigation click ─────────────────────────────────────────────────────────
-async function navTo(role: string, url: string) {
-  // Load emails for this mailbox if not yet loaded
+function navTo(role: string, url: string) {
+  // Close the mobile drawer immediately — don't wait for fetch/navigation
+  closeMobileSidebar()
+  if (!isMobile.value) setOpen(true)
+
+  void router.push(url)
+
+  // Prefetch mailbox in the background after the drawer starts closing
   const mb = mailboxesStore.list.find(m => m.role === role)
   if (mb && !mailStore.idsByMailbox[mb.id]?.length) {
-    await mailStore.fetchList(mb.id, true)
+    void mailStore.fetchList(mb.id, true)
   }
-
-  // On mobile: close the sidebar so the SidebarInset (email list) fills the screen
-  // On desktop: open the second panel
-  if (isMobile.value) {
-    setOpen(false)
-  } else {
-    setOpen(true)
-  }
-
-  router.push(url)
 }
 
 // ── Select an email from the panel ───────────────────────────────────────────
 function selectMail(emailId: string) {
-  // On mobile: close sidebar so the viewer fills the screen
-  if (isMobile.value) setOpen(false)
-  router.push({ path: `/mail/${activeRole.value}`, query: { id: emailId } })
+  closeMobileSidebar()
+  void router.push({ path: `/mail/${activeRole.value}`, query: { id: emailId } })
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
 const searchQuery = ref('')
 function onSearch(e: Event) {
   const q = (e.target as HTMLInputElement).value.trim()
-  if (q) router.push(`/mail/search?q=${encodeURIComponent(q)}`)
+  if (!q) return
+  closeMobileSidebar()
+  void router.push(`/mail/search?q=${encodeURIComponent(q)}`)
+}
+
+function openCompose() {
+  closeMobileSidebar()
+  composer.openCompose()
 }
 
 // ── User ──────────────────────────────────────────────────────────────────────
@@ -128,6 +140,16 @@ function formatDate(iso: string | null): string {
     return d.toLocaleDateString([], { weekday: 'short' })
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
+
+function mailInitials(mail: { from: { name?: string | null; email: string }[] }) {
+  const f = mail.from[0]
+  return senderInitials(f?.name, f?.email)
+}
+
+function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[] }) {
+  const f = mail.from[0]
+  return avatarStyle(f?.email || f?.name || '?')
+}
 </script>
 
 <template>
@@ -147,7 +169,7 @@ function formatDate(iso: string | null): string {
               <Tooltip>
                 <TooltipTrigger as-child>
                   <SidebarMenuButton size="lg" as-child class="md:h-8 md:p-0">
-                    <button type="button" @click="composer.openCompose()">
+                    <button type="button" @click="openCompose()">
                       <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shrink-0">
                         <SquarePen class="size-4" :stroke-width="1.75" />
                       </div>
@@ -254,13 +276,16 @@ function formatDate(iso: string | null): string {
           <SidebarGroupContent>
             <!-- Loading skeletons -->
             <template v-if="panelLoading && !panelEmails.length">
-              <div v-for="i in 6" :key="i" class="flex flex-col gap-2 border-b p-4">
-                <div class="flex gap-2">
-                  <div class="h-2.5 w-24 rounded bg-muted animate-pulse" />
-                  <div class="ml-auto h-2.5 w-10 rounded bg-muted animate-pulse" />
+              <div v-for="i in 6" :key="i" class="flex gap-3 border-b p-4">
+                <div class="size-9 shrink-0 rounded-full bg-muted animate-pulse" />
+                <div class="flex-1 space-y-2">
+                  <div class="flex gap-2">
+                    <div class="h-2.5 w-24 rounded bg-muted animate-pulse" />
+                    <div class="ml-auto h-2.5 w-10 rounded bg-muted animate-pulse" />
+                  </div>
+                  <div class="h-2.5 w-40 rounded bg-muted animate-pulse" />
+                  <div class="h-2.5 w-56 rounded bg-muted animate-pulse" />
                 </div>
-                <div class="h-2.5 w-40 rounded bg-muted animate-pulse" />
-                <div class="h-2.5 w-56 rounded bg-muted animate-pulse" />
               </div>
             </template>
 
@@ -278,7 +303,7 @@ function formatDate(iso: string | null): string {
               v-for="mail in panelEmails"
               :key="mail.id"
               :class="[
-                'group/mail relative w-full min-w-0 overflow-hidden text-left flex flex-col items-stretch gap-1 border-b px-4 py-3.5 text-sm leading-tight last:border-b-0 transition-colors',
+                'group/mail relative w-full min-w-0 overflow-hidden text-left flex gap-3 border-b px-4 py-3.5 text-sm leading-tight last:border-b-0 transition-colors',
                 route.query.id === mail.id
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                   : 'hover:bg-sidebar-accent/50',
@@ -292,50 +317,58 @@ function formatDate(iso: string | null): string {
                 class="absolute inset-y-0 left-0 w-0.5 bg-primary"
               />
 
-              <div class="flex w-full min-w-0 items-center gap-2">
+              <div
+                class="size-9 shrink-0 rounded-full flex items-center justify-center text-[11px] font-semibold select-none ring-1 ring-black/5"
+                :style="mailAvatarStyle(mail)"
+                aria-hidden="true"
+              >
+                {{ mailInitials(mail) }}
+              </div>
+
+              <div class="min-w-0 flex-1 flex flex-col gap-0.5">
+                <div class="flex w-full min-w-0 items-center gap-2">
+                  <span
+                    v-if="!mail.isRead"
+                    class="size-1.5 rounded-full bg-primary shrink-0"
+                  />
+                  <span
+                    :class="[
+                      'truncate min-w-0 flex-1',
+                      mail.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
+                    ]"
+                  >
+                    {{ mail.from[0]?.name || mail.from[0]?.email || '(unknown)' }}
+                  </span>
+                  <Star
+                    v-if="mail.isStarred"
+                    class="size-3 fill-amber-400 text-amber-400 shrink-0"
+                  />
+                  <span
+                    :class="[
+                      'text-xs whitespace-nowrap shrink-0 tabular-nums',
+                      mail.isRead ? 'text-muted-foreground' : 'text-foreground/70 font-medium',
+                    ]"
+                  >
+                    {{ formatDate(mail.receivedAt) }}
+                  </span>
+                </div>
                 <span
                   :class="[
-                    'size-1.5 rounded-full shrink-0',
-                    mail.isRead ? 'bg-transparent' : 'bg-primary',
-                  ]"
-                />
-                <span
-                  :class="[
-                    'truncate min-w-0 flex-1',
-                    mail.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
+                    'truncate min-w-0',
+                    mail.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground',
                   ]"
                 >
-                  {{ mail.from[0]?.name || mail.from[0]?.email || '(unknown)' }}
+                  {{ mail.subject || '(no subject)' }}
                 </span>
-                <Star
-                  v-if="mail.isStarred"
-                  class="size-3 fill-amber-400 text-amber-400 shrink-0"
-                />
                 <span
                   :class="[
-                    'text-xs whitespace-nowrap shrink-0 tabular-nums',
-                    mail.isRead ? 'text-muted-foreground' : 'text-foreground/70 font-medium',
+                    'line-clamp-2 min-w-0 break-words text-xs font-normal',
+                    mail.isRead ? 'text-muted-foreground/80' : 'text-muted-foreground',
                   ]"
                 >
-                  {{ formatDate(mail.receivedAt) }}
+                  {{ mail.preview }}
                 </span>
               </div>
-              <span
-                :class="[
-                  'truncate min-w-0 pl-3.5',
-                  mail.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground',
-                ]"
-              >
-                {{ mail.subject || '(no subject)' }}
-              </span>
-              <span
-                :class="[
-                  'line-clamp-2 min-w-0 break-words text-xs pl-3.5 font-normal',
-                  mail.isRead ? 'text-muted-foreground/80' : 'text-muted-foreground',
-                ]"
-              >
-                {{ mail.preview }}
-              </span>
             </button>
           </SidebarGroupContent>
         </SidebarGroup>

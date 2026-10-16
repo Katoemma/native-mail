@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft, Reply, ReplyAll, Forward, ChevronDown, ChevronUp } from '@lucide/vue'
 import type { MailMessage } from '../../../shared/types'
+import { avatarStyle, senderInitials } from '~/utils/avatar'
 
 const props = defineProps<{ threadId: string }>()
 const emit  = defineEmits<{
@@ -42,6 +43,16 @@ function formatDate(iso: string | null) {
 function senderName(email: MailMessage) {
   const f = email.from[0]
   return f?.name || f?.email || '(unknown)'
+}
+
+function threadInitials(email: MailMessage) {
+  const f = email.from[0]
+  return senderInitials(f?.name, f?.email)
+}
+
+function threadAvatar(email: MailMessage) {
+  const f = email.from[0]
+  return avatarStyle(f?.email || f?.name || '?')
 }
 
 // Reply helpers — need full email from store
@@ -112,8 +123,11 @@ function doForward(email: MailMessage) {
             class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
             @click="toggle(email.id)"
           >
-            <div class="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-              {{ senderName(email).charAt(0).toUpperCase() }}
+            <div
+              class="size-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ring-1 ring-black/5 select-none"
+              :style="threadAvatar(email)"
+            >
+              {{ threadInitials(email) }}
             </div>
             <div class="flex-1 text-left min-w-0">
               <div class="flex items-center gap-2">
