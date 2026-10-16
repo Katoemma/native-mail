@@ -1,6 +1,5 @@
-import { d as defineEventHandler, b as getQuery, c as createError } from '../../nitro/nitro.mjs';
-import { r as requireSession } from '../../_/auth.mjs';
-import { d as discoverJmapSession } from '../../_/session.mjs';
+import { d as defineEventHandler, a as getQuery, c as createError } from '../../nitro/nitro.mjs';
+import { r as requireSession, d as discoverJmapSession } from '../../_/session.mjs';
 import { c as createJmapClient } from '../../_/client.mjs';
 import { q as queryEmails, b as getEmailList } from '../../_/email.mjs';
 import { g as getMailboxes } from '../../_/mailbox.mjs';
@@ -23,6 +22,7 @@ import 'node:fs';
 import 'node:path';
 import 'node:url';
 import '../../_/oauth.mjs';
+import '../../_/attachment.mjs';
 
 const index_get = defineEventHandler(async (event) => {
   var _a, _b, _c;
@@ -43,8 +43,8 @@ const index_get = defineEventHandler(async (event) => {
     position,
     limit
   );
-  const emails = await getEmailList(client, jmapSession.accountId, ids);
-  return { emails, total, position, queryState };
+  const { emails, state: emailState } = await getEmailList(client, jmapSession.accountId, ids);
+  return { emails, total, position, queryState, emailState };
 });
 
 export { index_get as default };

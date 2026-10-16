@@ -1,5 +1,5 @@
 import { createRenderer, getRequestDependencies, getPreloadLinks, getPrefetchLinks } from 'vue-bundle-renderer/runtime';
-import { l as joinRelativeURL, u as useRuntimeConfig, m as getResponseStatusText, n as getResponseStatus, o as defineRenderHandler, b as getQuery, c as createError, p as destr, q as getRouteRules, t as relative, v as joinURL, w as useNitroApp } from '../nitro/nitro.mjs';
+import { m as joinRelativeURL, u as useRuntimeConfig, n as getResponseStatusText, o as getResponseStatus, p as defineRenderHandler, a as getQuery, c as createError, q as destr, t as getRouteRules, v as relative, w as joinURL, x as useNitroApp } from '../nitro/nitro.mjs';
 import { createHead as createHead$1, propsToString, renderSSRHead } from 'unhead/server';
 import { stringify, uneval } from 'devalue';
 import { isRef, toValue } from 'vue';
@@ -49,7 +49,7 @@ function createHead(options = {}) {
   return head;
 }
 
-const appHead = {"meta":[{"name":"viewport","content":"width=device-width, initial-scale=1"},{"charset":"utf-8"}],"link":[],"style":[],"script":[],"noscript":[]};
+const appHead = {"meta":[{"name":"viewport","content":"width=device-width, initial-scale=1"},{"charset":"utf-8"},{"name":"theme-color","content":"#f71212"},{"name":"msapplication-TileColor","content":"#f71212"},{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"}],"link":[],"style":[],"script":[],"noscript":[]};
 
 const appRootTag = "div";
 
@@ -199,7 +199,7 @@ function setSSRError(ssrContext, error) {
 
 const renderSSRHeadOptions = {"omitLineBreaks":true};
 
-const entryFileName = "DBU6Odz-.js";
+const entryFileName = "cVl94G7Y.js";
 
 globalThis.__buildAssetsURL = buildAssetsURL;
 globalThis.__publicAssetsURL = publicAssetsURL;

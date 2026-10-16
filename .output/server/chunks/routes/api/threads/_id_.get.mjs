@@ -1,6 +1,5 @@
-import { d as defineEventHandler, h as getRouterParam, c as createError } from '../../../nitro/nitro.mjs';
-import { r as requireSession } from '../../../_/auth.mjs';
-import { d as discoverJmapSession } from '../../../_/session.mjs';
+import { d as defineEventHandler, g as getRouterParam, c as createError } from '../../../nitro/nitro.mjs';
+import { r as requireSession, d as discoverJmapSession } from '../../../_/session.mjs';
 import { c as createJmapClient } from '../../../_/client.mjs';
 import { b as getEmailList } from '../../../_/email.mjs';
 import 'node:http';
@@ -22,6 +21,7 @@ import 'node:fs';
 import 'node:path';
 import 'node:url';
 import '../../../_/oauth.mjs';
+import '../../../_/attachment.mjs';
 
 async function getThreads(client, accountId, ids) {
   var _a;
@@ -47,7 +47,7 @@ const _id__get = defineEventHandler(async (event) => {
   const threads = await getThreads(client, jmapSession.accountId, [id]);
   const thread = threads[0];
   if (!thread) throw createError({ statusCode: 404, statusMessage: "Thread not found" });
-  const emails = await getEmailList(client, jmapSession.accountId, thread.emailIds);
+  const { emails } = await getEmailList(client, jmapSession.accountId, thread.emailIds);
   return { thread, emails };
 });
 

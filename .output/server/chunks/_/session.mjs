@@ -1,4 +1,64 @@
-import { j as useStorage, u as useRuntimeConfig } from '../nitro/nitro.mjs';
+import { u as useRuntimeConfig, h as getCookie, c as createError, e as setCookie, i as deleteCookie, l as useStorage } from '../nitro/nitro.mjs';
+import { createHmac } from 'node:crypto';
+
+const COOKIE_NAME = "nm_session";
+function simpleHmac(data, secret) {
+  return createHmac("sha256", secret).update(data).digest("base64url");
+}
+function encodeSession(data, secret) {
+  const payload = Buffer.from(JSON.stringify(data)).toString("base64url");
+  const sig = simpleHmac(payload, secret);
+  return `${payload}.${sig}`;
+}
+function decodeSession(token, secret) {
+  const dot = token.lastIndexOf(".");
+  if (dot === -1) return null;
+  const payload = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  if (simpleHmac(payload, secret) !== sig) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+function setSessionCookie(event, data, secret) {
+  const token = encodeSession(data, secret);
+  setCookie(event, COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: true,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7
+    // 7 days
+  });
+}
+function clearSessionCookie(event) {
+  deleteCookie(event, COOKIE_NAME, { path: "/" });
+}
+function requireSession(event) {
+  const config = useRuntimeConfig();
+  const raw = getCookie(event, COOKIE_NAME);
+  if (!raw) {
+    throw createError({ statusCode: 401, statusMessage: "Unauthorised" });
+  }
+  const session = decodeSession(raw, config.sessionSecret);
+  if (!session) {
+    throw createError({ statusCode: 401, statusMessage: "Invalid session" });
+  }
+  return session;
+}
+function getSession(event) {
+  const config = useRuntimeConfig();
+  const raw = getCookie(event, COOKIE_NAME);
+  if (!raw) return null;
+  return decodeSession(raw, config.sessionSecret);
+}
+function refreshSessionTokens(event, tokens) {
+  const config = useRuntimeConfig();
+  const session = requireSession(event);
+  setSessionCookie(event, { ...session, tokens }, config.sessionSecret);
+}
 
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
@@ -74,5 +134,5 @@ function buildUploadUrl(session) {
   return session.uploadUrl.replace("{accountId}", session.accountId);
 }
 
-export { JmapError as J, buildDownloadUrl as a, buildUploadUrl as b, discoverJmapSession as d, extractJmapError as e, invalidateJmapSession as i };
+export { JmapError as J, buildUploadUrl as a, buildDownloadUrl as b, clearSessionCookie as c, discoverJmapSession as d, refreshSessionTokens as e, extractJmapError as f, getSession as g, decodeSession as h, invalidateJmapSession as i, requireSession as r, setSessionCookie as s };
 //# sourceMappingURL=session.mjs.map

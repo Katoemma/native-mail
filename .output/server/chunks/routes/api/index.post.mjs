@@ -1,6 +1,5 @@
-import { d as defineEventHandler, i as readBody, c as createError } from '../../nitro/nitro.mjs';
-import { r as requireSession } from '../../_/auth.mjs';
-import { d as discoverJmapSession } from '../../_/session.mjs';
+import { d as defineEventHandler, j as readBody, c as createError } from '../../nitro/nitro.mjs';
+import { r as requireSession, d as discoverJmapSession } from '../../_/session.mjs';
 import { c as createJmapClient } from '../../_/client.mjs';
 import { g as getEmailFull, c as createDraft } from '../../_/email.mjs';
 import { g as getMailboxes } from '../../_/mailbox.mjs';
@@ -24,6 +23,7 @@ import 'node:fs';
 import 'node:path';
 import 'node:url';
 import '../../_/oauth.mjs';
+import '../../_/attachment.mjs';
 
 const index_post = defineEventHandler(async (event) => {
   var _a;
@@ -43,7 +43,7 @@ const index_post = defineEventHandler(async (event) => {
   let references;
   if (body.inReplyToEmailId) {
     try {
-      const original = await getEmailFull(client, jmapSession.accountId, body.inReplyToEmailId, jmapSession);
+      const original = await getEmailFull(client, jmapSession.accountId, body.inReplyToEmailId);
       const msgId = original.messageId;
       if (msgId) {
         inReplyTo = msgId;

@@ -1,5 +1,6 @@
 import { k as defineWebSocketHandler, u as useRuntimeConfig } from '../../nitro/nitro.mjs';
-import { d as decodeSession } from '../../_/auth.mjs';
+import { d as discoverJmapSession, h as decodeSession } from '../../_/session.mjs';
+import { isTokenExpired, discoverOAuthMetadata, refreshAccessToken } from '../../_/oauth.mjs';
 import 'node:http';
 import 'node:https';
 import 'node:crypto';
@@ -37,10 +38,34 @@ const mail = defineWebSocketHandler({
       peer.close();
       return;
     }
-    const { tokens, username } = session;
+    const { username } = session;
+    let accessToken = session.tokens.accessToken;
+    try {
+      if (isTokenExpired(session.tokens)) {
+        if (!session.tokens.refreshToken) {
+          peer.send(JSON.stringify({ type: "error", message: "Session expired" }));
+          peer.close();
+          return;
+        }
+        const config = useRuntimeConfig();
+        const metadata = await discoverOAuthMetadata(config.jmapBaseUrl);
+        const refreshed = await refreshAccessToken({
+          tokenEndpoint: metadata.token_endpoint,
+          clientId: config.oauthClientId,
+          clientSecret: config.oauthClientSecret,
+          refreshToken: session.tokens.refreshToken
+        });
+        accessToken = refreshed.accessToken;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      peer.send(JSON.stringify({ type: "error", message: `Token refresh failed: ${msg}` }));
+      peer.close();
+      return;
+    }
     let wsUrl;
     try {
-      const jmapSession = await discoverJmapSession(tokens.accessToken, username);
+      const jmapSession = await discoverJmapSession(accessToken, username);
       const wsCap = (_a = jmapSession.capabilities) == null ? void 0 : _a["urn:ietf:params:jmap:websocket"];
       wsUrl = (_b = wsCap == null ? void 0 : wsCap.url) != null ? _b : jmapSession.apiUrl.replace(/^https/, "wss").replace(/^http/, "ws").replace(/\/jmap\/?$/, "/jmap/ws");
     } catch {
@@ -52,7 +77,7 @@ const mail = defineWebSocketHandler({
       const { WebSocket: NodeWS } = await import('ws');
       const stalwartWs = new NodeWS(wsUrl, ["jmap"], {
         headers: {
-          "Authorization": `Bearer ${tokens.accessToken}`
+          "Authorization": `Bearer ${accessToken}`
         }
       });
       stalwartConnections.set(peer.id, stalwartWs);

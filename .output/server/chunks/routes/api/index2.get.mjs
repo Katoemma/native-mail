@@ -1,6 +1,5 @@
 import { d as defineEventHandler } from '../../nitro/nitro.mjs';
-import { r as requireSession } from '../../_/auth.mjs';
-import { d as discoverJmapSession } from '../../_/session.mjs';
+import { r as requireSession, d as discoverJmapSession } from '../../_/session.mjs';
 import { c as createJmapClient } from '../../_/client.mjs';
 import { g as getMailboxes } from '../../_/mailbox.mjs';
 import 'node:http';

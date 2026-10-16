@@ -1,6 +1,6 @@
-import { d as defineEventHandler, r as readRawBody, c as createError, g as getHeader } from '../../../nitro/nitro.mjs';
-import { r as requireSession } from '../../../_/auth.mjs';
-import { b as buildUploadUrl, d as discoverJmapSession } from '../../../_/session.mjs';
+import { d as defineEventHandler, r as readRawBody, c as createError, b as getHeader } from '../../../nitro/nitro.mjs';
+import { r as requireSession, d as discoverJmapSession } from '../../../_/session.mjs';
+import { u as uploadAttachment } from '../../../_/attachment.mjs';
 import 'node:http';
 import 'node:https';
 import 'node:crypto';
@@ -19,21 +19,6 @@ import 'node:buffer';
 import 'node:fs';
 import 'node:path';
 import 'node:url';
-
-async function uploadAttachment(accessToken, session, data, contentType, name) {
-  var _a;
-  const uploadUrl = buildUploadUrl(session);
-  const raw = await $fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": contentType,
-      "X-JMAP-FileName": encodeURIComponent(name)
-    },
-    body: data
-  });
-  return { blobId: raw.blobId, size: raw.size, type: (_a = raw.type) != null ? _a : contentType, name };
-}
 
 const upload_post = defineEventHandler(async (event) => {
   var _a, _b;

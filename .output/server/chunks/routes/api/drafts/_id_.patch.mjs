@@ -1,6 +1,5 @@
-import { d as defineEventHandler, h as getRouterParam, i as readBody, c as createError } from '../../../nitro/nitro.mjs';
-import { r as requireSession } from '../../../_/auth.mjs';
-import { d as discoverJmapSession } from '../../../_/session.mjs';
+import { d as defineEventHandler, g as getRouterParam, j as readBody, c as createError } from '../../../nitro/nitro.mjs';
+import { r as requireSession, d as discoverJmapSession } from '../../../_/session.mjs';
 import { c as createJmapClient } from '../../../_/client.mjs';
 import { u as updateDraft } from '../../../_/email.mjs';
 import 'node:http';
@@ -22,6 +21,7 @@ import 'node:fs';
 import 'node:path';
 import 'node:url';
 import '../../../_/oauth.mjs';
+import '../../../_/attachment.mjs';
 
 const _id__patch = defineEventHandler(async (event) => {
   const session = requireSession(event);

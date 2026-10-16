@@ -1,6 +1,5 @@
 import { d as defineEventHandler } from '../../../nitro/nitro.mjs';
-import { g as getSession, c as clearSessionCookie } from '../../../_/auth.mjs';
-import { i as invalidateJmapSession } from '../../../_/session.mjs';
+import { g as getSession, i as invalidateJmapSession, c as clearSessionCookie } from '../../../_/session.mjs';
 import 'node:http';
 import 'node:https';
 import 'node:crypto';

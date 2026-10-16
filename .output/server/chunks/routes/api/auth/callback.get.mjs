@@ -1,8 +1,7 @@
-import { d as defineEventHandler, b as getQuery, a as sendRedirect, c as createError, e as getCookie, f as deleteCookie, u as useRuntimeConfig } from '../../../nitro/nitro.mjs';
+import { d as defineEventHandler, a as getQuery, f as sendRedirect, c as createError, h as getCookie, i as deleteCookie, u as useRuntimeConfig } from '../../../nitro/nitro.mjs';
 import { discoverOAuthMetadata, exchangeCodeForTokens } from '../../../_/oauth.mjs';
-import { d as discoverJmapSession } from '../../../_/session.mjs';
+import { d as discoverJmapSession, s as setSessionCookie } from '../../../_/session.mjs';
 import { J as JmapClient } from '../../../_/client.mjs';
-import { s as setSessionCookie } from '../../../_/auth.mjs';
 import 'node:http';
 import 'node:https';
 import 'node:crypto';
@@ -68,8 +67,8 @@ const callback_get = defineEventHandler(async (event) => {
       statusMessage: "Token exchange failed \u2014 invalid code or client credentials"
     });
   }
-  let username = "unknown";
-  let displayName = "";
+  let username = "user";
+  let displayName = "User";
   let email = "";
   try {
     const jmapSession = await discoverJmapSession(tokens.accessToken, "_callback_");
@@ -79,13 +78,14 @@ const callback_get = defineEventHandler(async (event) => {
     ]);
     const args = client.getResponse(response, "identities");
     const identity = (_a = args.list) == null ? void 0 : _a[0];
-    if (identity) {
+    if (identity == null ? void 0 : identity.email) {
       username = identity.email;
-      displayName = identity.name || identity.email;
+      displayName = (identity.name || identity.email).trim() || identity.email;
       email = identity.email;
       await discoverJmapSession(tokens.accessToken, username);
     }
-  } catch {
+  } catch (err) {
+    console.warn("[callback] Identity/get failed, session will heal on next /api/session:", err);
   }
   setSessionCookie(event, { username, displayName, email, tokens }, config.sessionSecret);
   return sendRedirect(event, "/mail/inbox", 302);

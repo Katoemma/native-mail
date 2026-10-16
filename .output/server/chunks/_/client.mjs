@@ -1,7 +1,6 @@
 import { u as useRuntimeConfig } from '../nitro/nitro.mjs';
-import { J as JmapError, e as extractJmapError } from './session.mjs';
+import { J as JmapError, e as refreshSessionTokens, f as extractJmapError } from './session.mjs';
 import { isTokenExpired, refreshAccessToken } from './oauth.mjs';
-import { a as refreshSessionTokens } from './auth.mjs';
 
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
@@ -52,28 +51,29 @@ class JmapClient {
     return found[1];
   }
 }
-async function createJmapClient(tokens, apiUrl, event) {
-  const config = useRuntimeConfig();
-  let activeToken = tokens.accessToken;
-  if (isTokenExpired(tokens)) {
-    if (!tokens.refreshToken) {
-      throw new JmapError("authenticationFailed", "Access token expired and no refresh token available", void 0, 401);
-    }
-    const { discoverOAuthMetadata } = await import('./oauth.mjs');
-    const metadata = await discoverOAuthMetadata(config.jmapBaseUrl);
-    const refreshed = await refreshAccessToken({
-      tokenEndpoint: metadata.token_endpoint,
-      clientId: config.oauthClientId,
-      clientSecret: config.oauthClientSecret,
-      refreshToken: tokens.refreshToken
-    });
-    activeToken = refreshed.accessToken;
-    if (event) {
-      refreshSessionTokens(event, refreshed);
-    }
+async function resolveAccessToken(tokens, event) {
+  if (!isTokenExpired(tokens)) return tokens.accessToken;
+  if (!tokens.refreshToken) {
+    throw new JmapError("authenticationFailed", "Access token expired and no refresh token available", void 0, 401);
   }
-  return new JmapClient(apiUrl, activeToken);
+  const config = useRuntimeConfig();
+  const { discoverOAuthMetadata } = await import('./oauth.mjs');
+  const metadata = await discoverOAuthMetadata(config.jmapBaseUrl);
+  const refreshed = await refreshAccessToken({
+    tokenEndpoint: metadata.token_endpoint,
+    clientId: config.oauthClientId,
+    clientSecret: config.oauthClientSecret,
+    refreshToken: tokens.refreshToken
+  });
+  if (event) {
+    refreshSessionTokens(event, refreshed);
+  }
+  return refreshed.accessToken;
+}
+async function createJmapClient(tokens, apiUrl, event) {
+  const accessToken = await resolveAccessToken(tokens, event);
+  return new JmapClient(apiUrl, accessToken);
 }
 
-export { JmapClient as J, createJmapClient as c };
+export { JmapClient as J, createJmapClient as c, resolveAccessToken as r };
 //# sourceMappingURL=client.mjs.map

@@ -1,4 +1,4 @@
-import { a as buildDownloadUrl } from './session.mjs';
+import { b as buildClientDownloadUrl } from './attachment.mjs';
 
 const LIST_PROPERTIES = [
   "id",
@@ -40,7 +40,7 @@ function normaliseList(raw) {
     isStarred: "$flagged" in ((_n = raw.keywords) != null ? _n : {})
   };
 }
-function normaliseFull(raw, session, accountId) {
+function normaliseFull(raw) {
   var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
   const base = normaliseList(raw);
   let textBody = null;
@@ -75,7 +75,7 @@ function normaliseFull(raw, session, accountId) {
       name: (_a2 = p.name) != null ? _a2 : "attachment",
       type: (_b2 = p.type) != null ? _b2 : "application/octet-stream",
       size: (_c2 = p.size) != null ? _c2 : 0,
-      downloadUrl: buildDownloadUrl(session, p.blobId, (_d2 = p.name) != null ? _d2 : "attachment")
+      downloadUrl: buildClientDownloadUrl(p.blobId, (_d2 = p.name) != null ? _d2 : "attachment")
     };
   });
   const headers = {};
@@ -116,8 +116,7 @@ async function queryEmails(client, accountId, mailboxId, position = 0, limit = 5
   return { ids: (_a = args.ids) != null ? _a : [], total: (_b = args.total) != null ? _b : 0, queryState: (_c = args.queryState) != null ? _c : "" };
 }
 async function getEmailList(client, accountId, ids) {
-  var _a;
-  if (!ids.length) return [];
+  var _a, _b;
   const response = await client.request([
     [
       "Email/get",
@@ -126,9 +125,12 @@ async function getEmailList(client, accountId, ids) {
     ]
   ]);
   const args = client.getResponse(response, "email-list");
-  return ((_a = args.list) != null ? _a : []).map(normaliseList);
+  return {
+    emails: ((_a = args.list) != null ? _a : []).map(normaliseList),
+    state: (_b = args.state) != null ? _b : ""
+  };
 }
-async function getEmailFull(client, accountId, id, session) {
+async function getEmailFull(client, accountId, id) {
   var _a, _b, _c, _d, _e;
   const response = await client.request([
     [
@@ -160,7 +162,7 @@ async function getEmailFull(client, accountId, id, session) {
   console.log("[getEmailFull] raw.bodyStructure type:", (_b = raw.bodyStructure) == null ? void 0 : _b.type);
   console.log("[getEmailFull] raw.bodyValues keys:", Object.keys((_c = raw.bodyValues) != null ? _c : {}));
   console.log("[getEmailFull] raw.attachments count:", (_e = (_d = raw.attachments) == null ? void 0 : _d.length) != null ? _e : 0);
-  return normaliseFull(raw, session);
+  return normaliseFull(raw);
 }
 async function setEmailKeyword(client, accountId, id, keyword, value) {
   await client.request([
