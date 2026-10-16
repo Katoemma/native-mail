@@ -151,6 +151,40 @@ export const useComposerStore = defineStore('composer', {
       }
     },
 
+    /** Inline reply from the viewer — does not open the floating composer. */
+    async quickReply(
+      email: { id: string; threadId: string; from: MailAddress[]; subject: string },
+      body: string,
+    ) {
+      const text = body.trim()
+      if (!text) return
+
+      this.$reset()
+      this.mode = 'reply'
+      this.inReplyToEmailId = email.id
+      this.threadId = email.threadId
+      this.to = [...email.from]
+      this.subject = email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`
+      this.body = text
+      this.open = false
+
+      this.sending = true
+      this.error = null
+      try {
+        await this.saveDraft()
+        if (!this.draftId) throw new Error('Could not create draft before sending')
+        await $fetch(`/api/emails/${this.draftId}/send`, { method: 'POST' })
+        this.$reset()
+      }
+      catch (err: unknown) {
+        this.error = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Send failed'
+        throw err
+      }
+      finally {
+        this.sending = false
+      }
+    },
+
     async addAttachment(file: File) {
       const clientId = `${Date.now()}-${file.name}`
       const draft: AttachmentDraft = {
