@@ -377,7 +377,7 @@ const otherAttachments = computed(() =>
 
       <!-- ── Loading ────────────────────────────────────────────────────── -->
       <div v-if="isFetching" class="flex-1 overflow-y-auto">
-        <div class="w-full max-w-3xl mx-auto px-6 py-8 space-y-6 animate-pulse">
+        <div class="w-full px-5 sm:px-8 py-8 space-y-6 animate-pulse">
           <div class="h-7 w-2/3 rounded-lg bg-muted" />
           <div class="flex items-center gap-3">
             <div class="size-11 rounded-full bg-muted shrink-0" />
@@ -414,7 +414,7 @@ const otherAttachments = computed(() =>
           visible ? 'opacity-100' : 'opacity-0',
         ]"
       >
-        <div :class="['w-full mx-auto', inline ? 'px-0 py-2' : 'max-w-3xl px-5 sm:px-8 py-6 sm:py-8']">
+        <div :class="['w-full', inline ? 'px-0 py-2' : 'px-5 sm:px-8 py-6 sm:py-8']">
 
           <!-- Subject -->
           <h1
