@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {
-  Archive, ArchiveX, File, Inbox, Send, Trash2,
-  Search, PenSquare, ChevronDown,
+  Archive, ShieldAlert, FilePenLine, Inbox, SendHorizontal, Trash2,
+  Search, SquarePen, ChevronDown,
 } from '@lucide/vue'
+import type { Component } from 'vue'
 import type { Mailbox } from '../../../shared/types'
 
 const router = useRouter()
@@ -12,17 +13,17 @@ const sessionStore = useSessionStore()
 
 const mailboxes = computed(() => mailboxesStore.list)
 
-const ROLE_ICONS: Record<string, ReturnType<typeof defineComponent>> = {
+const ROLE_ICONS: Record<string, Component> = {
   inbox:   Inbox,
-  sent:    Send,
-  drafts:  File,
+  sent:    SendHorizontal,
+  drafts:  FilePenLine,
   trash:   Trash2,
-  junk:    ArchiveX,
+  junk:    ShieldAlert,
   archive: Archive,
 }
 
 function iconFor(mb: Mailbox) {
-  return mb.role ? ROLE_ICONS[mb.role] ?? File : File
+  return mb.role ? ROLE_ICONS[mb.role] ?? FilePenLine : FilePenLine
 }
 
 function navTo(mb: Mailbox) {
@@ -67,7 +68,7 @@ const user = computed(() => ({
       class="flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       @click="$router.push('/mail/compose')"
     >
-      <PenSquare class="size-4" />
+      <SquarePen class="size-4" :stroke-width="1.75" />
       Compose
     </button>
 

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ArchiveX, File, Inbox, Send, Trash2, PenSquare, Star } from '@lucide/vue'
-import { h } from 'vue'
+import {
+  Inbox, FilePenLine, SendHorizontal, ShieldAlert, Trash2,
+  SquarePen, Star,
+} from '@lucide/vue'
 import NavUser from '@/components/NavUser.vue'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -16,6 +18,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Switch } from '@/components/ui/switch'
 import type { HTMLAttributes } from 'vue'
 import type { MailboxRole } from '../../shared/types'
@@ -43,11 +48,11 @@ const { setOpen, isMobile } = useSidebar()
 
 // ── Nav items — roles map to routes ──────────────────────────────────────────
 const navItems = [
-  { title: 'Inbox',  role: 'inbox'  as MailboxRole, icon: Inbox,   url: '/mail/inbox'  },
-  { title: 'Drafts', role: 'drafts' as MailboxRole, icon: File,    url: '/mail/drafts' },
-  { title: 'Sent',   role: 'sent'   as MailboxRole, icon: Send,    url: '/mail/sent'   },
-  { title: 'Junk',   role: 'junk'   as MailboxRole, icon: ArchiveX,url: '/mail/junk'   },
-  { title: 'Trash',  role: 'trash'  as MailboxRole, icon: Trash2,  url: '/mail/trash'  },
+  { title: 'Inbox',  role: 'inbox'  as MailboxRole, icon: Inbox,          url: '/mail/inbox'  },
+  { title: 'Drafts', role: 'drafts' as MailboxRole, icon: FilePenLine,    url: '/mail/drafts' },
+  { title: 'Sent',   role: 'sent'   as MailboxRole, icon: SendHorizontal, url: '/mail/sent'   },
+  { title: 'Junk',   role: 'junk'   as MailboxRole, icon: ShieldAlert,    url: '/mail/junk'   },
+  { title: 'Trash',  role: 'trash'  as MailboxRole, icon: Trash2,         url: '/mail/trash'  },
 ]
 
 // Active item derived from current route
@@ -138,16 +143,23 @@ function formatDate(iso: string | null): string {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" as-child class="md:h-8 md:p-0">
-              <button @click="composer.openCompose()">
-                <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <PenSquare class="size-4" />
-                </div>
-                <div class="grid flex-1 text-left text-sm leading-tight">
-                  <span class="truncate font-medium">Compose</span>
-                </div>
-              </button>
-            </SidebarMenuButton>
+            <TooltipProvider :delay-duration="200">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <SidebarMenuButton size="lg" as-child class="md:h-8 md:p-0">
+                    <button type="button" @click="composer.openCompose()">
+                      <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                        <SquarePen class="size-4" :stroke-width="1.75" />
+                      </div>
+                      <div class="grid flex-1 text-left text-sm leading-tight">
+                        <span class="truncate font-medium">Compose</span>
+                      </div>
+                    </button>
+                  </SidebarMenuButton>
+                </TooltipTrigger>
+                <TooltipContent side="right" align="center">Compose</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -155,26 +167,46 @@ function formatDate(iso: string | null): string {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent class="px-1.5 md:px-0">
-            <SidebarMenu>
-              <SidebarMenuItem v-for="item in navItems" :key="item.title">
-                <SidebarMenuButton
-                  :tooltip="h('div', { hidden: false }, item.title)"
-                  :is-active="activeRole === item.role"
-                  class="px-2.5 md:px-2"
-                  @click="navTo(item.role!, item.url)"
-                >
-                  <component :is="item.icon" />
-                  <span>{{ item.title }}</span>
-                  <!-- Unread badge on icon -->
-                  <span
-                    v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
-                    class="ml-auto flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold"
-                  >
-                    {{ mailboxesStore.byRole(item.role!)?.unreadEmails }}
-                  </span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+            <TooltipProvider :delay-duration="200">
+              <SidebarMenu>
+                <SidebarMenuItem v-for="item in navItems" :key="item.title">
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <SidebarMenuButton
+                        :is-active="activeRole === item.role"
+                        class="relative px-2.5 md:px-2"
+                        @click="navTo(item.role!, item.url)"
+                      >
+                        <component
+                          :is="item.icon"
+                          class="size-[18px]"
+                          :stroke-width="1.75"
+                        />
+                        <span class="sr-only">{{ item.title }}</span>
+                        <!-- Unread badge -->
+                        <span
+                          v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
+                          class="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[9px] font-bold leading-none"
+                        >
+                          {{ mailboxesStore.byRole(item.role!)!.unreadEmails! > 9
+                            ? '9+'
+                            : mailboxesStore.byRole(item.role!)?.unreadEmails }}
+                        </span>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center">
+                      {{ item.title }}
+                      <span
+                        v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
+                        class="ml-1.5 text-muted-foreground"
+                      >
+                        · {{ mailboxesStore.byRole(item.role!)?.unreadEmails }} unread
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </TooltipProvider>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
