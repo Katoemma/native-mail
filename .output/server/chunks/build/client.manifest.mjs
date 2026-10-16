@@ -51,7 +51,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "Doe4ld4d.js",
+    "file": "CyEJo3ko.js",
     "name": "entry",
     "src": "../node_modules/nuxt/dist/app/entry.js",
     "isEntry": true,
@@ -62,11 +62,11 @@ const client_manifest = {
       "../node_modules/nuxt/dist/app/components/error-500.vue"
     ],
     "css": [
-      "entry.DO_Du5CR.css"
+      "entry.BYfa6isA.css"
     ]
   },
-  "entry.DO_Du5CR.css": {
-    "file": "entry.DO_Du5CR.css",
+  "entry.BYfa6isA.css": {
+    "file": "entry.BYfa6isA.css",
     "resourceType": "style",
     "prefetch": true,
     "preload": true
@@ -199,7 +199,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "Cb8Y54lb.js",
+    "file": "DPMVhS2F.js",
     "name": "sidebarLayout",
     "src": "layouts/sidebarLayout.vue",
     "isDynamicEntry": true,
