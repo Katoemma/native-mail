@@ -1,1 +1,0 @@
-import{d as t,u as o,o as n,y as s,z as r}from"#entry";const c={class:"flex items-center justify-center h-32 text-muted-foreground text-sm"},m=t({__name:"index",setup(a){const e=o();return n(()=>e.replace("/mail/inbox")),(i,u)=>(s(),r("div",c," Redirecting to inbox… "))}});export{m as default};
