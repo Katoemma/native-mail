@@ -104,17 +104,51 @@ function navTo(role: string, url: string) {
 // ── Select an email from the panel ───────────────────────────────────────────
 function selectMail(emailId: string) {
   closeMobileSidebar()
+  if (isSearchMode.value) {
+    void router.push({
+      path: '/mail/search',
+      query: { q: searchQuery.value.trim(), id: emailId },
+    })
+    return
+  }
   void router.push({ path: `/mail/${activeRole.value}`, query: { id: emailId } })
 }
 
+const panelList = computed(() =>
+  isSearchMode.value ? searchResults.value : panelEmails.value,
+)
+const panelIsLoading = computed(() =>
+  isSearchMode.value ? searchLoading.value : panelLoading.value,
+)
+
 // ── Search ────────────────────────────────────────────────────────────────────
-const searchQuery = ref('')
-function onSearch(e: Event) {
-  const q = (e.target as HTMLInputElement).value.trim()
+const {
+  query: searchQuery,
+  results: searchResults,
+  total: searchTotal,
+  loading: searchLoading,
+  error: searchError,
+  search,
+} = useSearch()
+
+const isSearchMode = computed(() => route.path === '/mail/search')
+
+function onSearch() {
+  const q = searchQuery.value.trim()
   if (!q) return
   closeMobileSidebar()
-  void router.push(`/mail/search?q=${encodeURIComponent(q)}`)
+  void router.push({ path: '/mail/search', query: { q } })
+  void search(q)
 }
+
+// Keep the input in sync when landing via URL / back navigation
+watch(
+  () => route.query.q,
+  (q) => {
+    if (typeof q === 'string' && q !== searchQuery.value) searchQuery.value = q
+  },
+  { immediate: true },
+)
 
 function openCompose() {
   closeMobileSidebar()
@@ -262,7 +296,8 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter class="px-2 md:px-0">
+      <!-- Profile lives in the mobile top header; keep it in the rail on desktop -->
+      <SidebarFooter class="hidden px-2 md:flex md:px-0">
         <NavUser :user="user" />
       </SidebarFooter>
     </Sidebar>
@@ -271,19 +306,28 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
     <Sidebar collapsible="none" class="hidden min-w-0 flex-1 md:flex">
       <SidebarHeader class="gap-3.5 border-b p-4">
         <div class="flex w-full items-center justify-between">
-          <div class="text-base font-medium text-foreground">
-            {{ activeMailbox?.name ?? activeRole }}
+          <div class="min-w-0">
+            <div class="text-base font-medium text-foreground truncate">
+              {{ isSearchMode ? 'Search' : (activeMailbox?.name ?? activeRole) }}
+            </div>
+            <p
+              v-if="isSearchMode && searchQuery.trim()"
+              class="text-xs text-muted-foreground truncate"
+            >
+              “{{ searchQuery.trim() }}” · {{ searchTotal }} result{{ searchTotal === 1 ? '' : 's' }}
+            </p>
           </div>
-          <Label class="flex items-center gap-2 text-sm">
+          <Label v-if="!isSearchMode" class="flex items-center gap-2 text-sm shrink-0">
             <span>Unreads</span>
             <Switch v-model:checked="showUnreadOnly" class="shadow-none" />
           </Label>
         </div>
         <Input
           v-model="searchQuery"
+          type="search"
           class="bg-background h-8 w-full shadow-none"
           placeholder="Type to search..."
-          @keydown.enter="onSearch"
+          @keydown.enter.prevent="onSearch"
         />
       </SidebarHeader>
 
@@ -291,7 +335,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
         <SidebarGroup class="px-0">
           <SidebarGroupContent>
             <!-- Loading skeletons -->
-            <template v-if="panelLoading && !panelEmails.length">
+            <template v-if="panelIsLoading && !panelList.length">
               <div v-for="i in 6" :key="i" class="flex gap-3 border-b p-4">
                 <div class="size-9 shrink-0 rounded-full bg-muted animate-pulse" />
                 <div class="flex-1 space-y-2">
@@ -305,18 +349,28 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
               </div>
             </template>
 
-            <!-- Empty state -->
+            <!-- Empty / error -->
             <div
-              v-else-if="!panelLoading && !panelEmails.length"
+              v-else-if="isSearchMode && searchError"
+              class="flex flex-col items-center justify-center py-12 text-destructive gap-2 px-4 text-center"
+            >
+              <p class="text-xs font-medium">{{ searchError }}</p>
+            </div>
+            <div
+              v-else-if="!panelIsLoading && !panelList.length"
               class="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2"
             >
-              <span class="text-3xl">📭</span>
-              <p class="text-xs">No messages</p>
+              <span class="text-3xl">{{ isSearchMode ? '🔍' : '📭' }}</span>
+              <p class="text-xs">
+                {{ isSearchMode
+                  ? (searchQuery.trim() ? 'No messages found' : 'Search your mail')
+                  : 'No messages' }}
+              </p>
             </div>
 
             <!-- Mail list -->
             <button
-              v-for="mail in panelEmails"
+              v-for="mail in panelList"
               :key="mail.id"
               :class="[
                 'group/mail relative w-full min-w-0 overflow-hidden text-left flex gap-3 border-b px-4 py-3.5 text-sm leading-tight last:border-b-0 transition-colors',
