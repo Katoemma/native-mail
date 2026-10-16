@@ -9,6 +9,16 @@ import {
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { MailAttachment, MailMessageFull } from '../../../shared/types'
 
 const props = withDefaults(defineProps<{
@@ -50,9 +60,58 @@ onMounted(() => loadEmail(props.emailId))
 watch(() => props.emailId, (id) => { if (id) loadEmail(id) })
 
 // ── Actions ──────────────────────────────────────────────────────────────────
-async function trash() {
-  await mailStore.trash(props.emailId)
-  emit('back')
+const confirmOpen = ref(false)
+const confirming  = ref(false)
+
+const trashMailboxId = computed(() => mailboxesStore.trash?.id ?? null)
+
+/** Already in Trash → permanent delete; otherwise move to Trash */
+const isInTrash = computed(() => {
+  const e = email.value
+  const trashId = trashMailboxId.value
+  if (!e || !trashId) return false
+  return !!e.mailboxIds?.[trashId]
+})
+
+const confirmTitle = computed(() =>
+  isInTrash.value ? 'Delete permanently?' : 'Move to Trash?',
+)
+
+const confirmDescription = computed(() => {
+  const subject = email.value?.subject?.trim() || '(no subject)'
+  if (isInTrash.value) {
+    return `"${subject}" will be permanently deleted. This cannot be undone.`
+  }
+  return `"${subject}" will be moved to Trash. You can recover it later from there.`
+})
+
+const confirmActionLabel = computed(() =>
+  isInTrash.value ? 'Delete forever' : 'Move to Trash',
+)
+
+function requestTrash() {
+  confirmOpen.value = true
+}
+
+async function confirmTrash() {
+  if (confirming.value) return
+  confirming.value = true
+  try {
+    if (isInTrash.value) {
+      await mailStore.destroy(props.emailId)
+    }
+    else {
+      await mailStore.trash(props.emailId)
+    }
+    confirmOpen.value = false
+    emit('back')
+  }
+  catch {
+    // Keep dialog open so the user can retry / cancel
+  }
+  finally {
+    confirming.value = false
+  }
 }
 
 async function archive() {
@@ -365,15 +424,36 @@ const otherAttachments = computed(() =>
             <TooltipTrigger as-child>
               <button
                 class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150 active:scale-[0.97]"
-                @click="trash"
+                :aria-label="isInTrash ? 'Delete permanently' : 'Move to Trash'"
+                @click="requestTrash"
               >
                 <Trash2 class="size-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Trash</TooltipContent>
+            <TooltipContent>{{ isInTrash ? 'Delete permanently' : 'Move to Trash' }}</TooltipContent>
           </Tooltip>
         </template>
       </div>
+
+      <!-- Confirm trash / permanent delete -->
+      <AlertDialog v-model:open="confirmOpen">
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{{ confirmTitle }}</AlertDialogTitle>
+            <AlertDialogDescription>{{ confirmDescription }}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel :disabled="confirming">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              class="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20"
+              :disabled="confirming"
+              @click.prevent="confirmTrash"
+            >
+              {{ confirming ? 'Working…' : confirmActionLabel }}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <!-- ── Loading ────────────────────────────────────────────────────── -->
       <div v-if="isFetching" class="flex-1 overflow-y-auto">
