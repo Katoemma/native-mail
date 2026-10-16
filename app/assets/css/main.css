@@ -54,6 +54,8 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(61.707% 0.24734 28.707);
+  /* Hex twin of --primary for <meta name="theme-color"> (see nuxt.config) */
+  --browser-theme: #f71212;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);

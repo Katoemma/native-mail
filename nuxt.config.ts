@@ -6,6 +6,17 @@ export default defineNuxtConfig({
   ssr: false,   // SPA mode — no SSR flash, loading screen handles auth check
   css: ['~/assets/css/main.css'],
 
+  // Browser chrome (mobile status bar, PWA) — matches --primary in main.css
+  app: {
+    head: {
+      meta: [
+        { name: 'theme-color', content: '#f71212' },
+        { name: 'msapplication-TileColor', content: '#f71212' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+      ],
+    },
+  },
+
   vite: {
     plugins: [
       tailwindcss(),
