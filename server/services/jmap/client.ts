@@ -71,6 +71,37 @@ export class JmapClient {
 }
 
 /**
+ * Returns a valid access token, refreshing + persisting if expired.
+ */
+export async function resolveAccessToken(
+  tokens: OAuthTokens,
+  event?: H3Event,
+): Promise<string> {
+  if (!isTokenExpired(tokens)) return tokens.accessToken
+
+  if (!tokens.refreshToken) {
+    throw new JmapError('authenticationFailed', 'Access token expired and no refresh token available', undefined, 401)
+  }
+
+  const config = useRuntimeConfig()
+  const { discoverOAuthMetadata } = await import('../stalwart/oauth')
+  const metadata = await discoverOAuthMetadata(config.jmapBaseUrl)
+
+  const refreshed = await refreshAccessToken({
+    tokenEndpoint: metadata.token_endpoint,
+    clientId:      config.oauthClientId,
+    clientSecret:  config.oauthClientSecret,
+    refreshToken:  tokens.refreshToken,
+  })
+
+  if (event) {
+    refreshSessionTokens(event, refreshed)
+  }
+
+  return refreshed.accessToken
+}
+
+/**
  * Factory — builds a JmapClient from the session's OAuth tokens.
  * If the access token is expired it refreshes it first and updates
  * the session cookie in-place so the new token persists.
@@ -80,31 +111,6 @@ export async function createJmapClient(
   apiUrl: string,
   event?: H3Event,
 ): Promise<JmapClient> {
-  const config = useRuntimeConfig()
-  let activeToken = tokens.accessToken
-
-  if (isTokenExpired(tokens)) {
-    if (!tokens.refreshToken) {
-      throw new JmapError('authenticationFailed', 'Access token expired and no refresh token available', undefined, 401)
-    }
-
-    const { discoverOAuthMetadata } = await import('../stalwart/oauth')
-    const metadata = await discoverOAuthMetadata(config.jmapBaseUrl)
-
-    const refreshed = await refreshAccessToken({
-      tokenEndpoint: metadata.token_endpoint,
-      clientId:      config.oauthClientId,
-      clientSecret:  config.oauthClientSecret,
-      refreshToken:  tokens.refreshToken,
-    })
-
-    activeToken = refreshed.accessToken
-
-    // Persist the new tokens into the session cookie if we have an event context
-    if (event) {
-      refreshSessionTokens(event, refreshed)
-    }
-  }
-
-  return new JmapClient(apiUrl, activeToken)
+  const accessToken = await resolveAccessToken(tokens, event)
+  return new JmapClient(apiUrl, accessToken)
 }

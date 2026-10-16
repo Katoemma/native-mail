@@ -1,7 +1,6 @@
 import type { MailMessage, MailMessageFull, MailAttachment } from '../../../shared/types'
-import type { JmapSession } from '../../../shared/types'
 import { JmapClient } from './client'
-import { buildDownloadUrl } from './session'
+import { buildClientDownloadUrl } from './attachment'
 
 // ---------------------------------------------------------------------------
 // Internal JMAP shapes
@@ -86,11 +85,7 @@ function normaliseList(raw: JmapEmailList): MailMessage {
   }
 }
 
-function normaliseFull(
-  raw: JmapEmailFull,
-  session: JmapSession,
-  accountId: string,
-): MailMessageFull {
+function normaliseFull(raw: JmapEmailFull): MailMessageFull {
   const base = normaliseList(raw)
 
   // --- Body extraction ---
@@ -143,7 +138,7 @@ function normaliseFull(
       name: p.name ?? 'attachment',
       type: p.type ?? 'application/octet-stream',
       size: p.size ?? 0,
-      downloadUrl: buildDownloadUrl(session, p.blobId!, p.name ?? 'attachment'),
+      downloadUrl: buildClientDownloadUrl(p.blobId!, p.name ?? 'attachment'),
     }))
 
   // --- Headers ---
@@ -220,7 +215,6 @@ export async function getEmailFull(
   client: JmapClient,
   accountId: string,
   id: string,
-  session: JmapSession,
 ): Promise<MailMessageFull> {
   const response = await client.request([
     [
@@ -250,7 +244,7 @@ export async function getEmailFull(
   console.log('[getEmailFull] raw.bodyValues keys:', Object.keys(raw.bodyValues ?? {}))
   console.log('[getEmailFull] raw.attachments count:', raw.attachments?.length ?? 0)
 
-  return normaliseFull(raw, session, accountId)
+  return normaliseFull(raw)
 }
 
 export async function setEmailKeyword(

@@ -112,7 +112,7 @@ export interface MailAttachment {
   name: string
   type: string
   size: number
-  /** Constructed by the BFF using the download URL template */
+  /** BFF proxy URL — /api/attachments/:blobId (session cookie auth, no Stalwart login) */
   downloadUrl: string
 }
 

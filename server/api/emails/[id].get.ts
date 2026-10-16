@@ -9,7 +9,7 @@ export default defineEventHandler(async (event): Promise<ApiEmailResponse> => {
   const id          = getRouterParam(event, 'id')!
   const jmapSession = await discoverJmapSession(session.tokens.accessToken, session.username)
   const client      = await createJmapClient(session.tokens, jmapSession.apiUrl, event)
-  const email       = await getEmailFull(client, jmapSession.accountId, id, jmapSession)
+  const email       = await getEmailFull(client, jmapSession.accountId, id)
 
   // Temporary debug — remove after confirming body arrives
   console.log('[email/get] id:', id)

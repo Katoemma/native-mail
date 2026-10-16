@@ -1,11 +1,16 @@
-import { JmapClient } from './client'
-import { buildUploadUrl } from './session'
+import { buildDownloadUrl, buildUploadUrl } from './session'
 import type { JmapSession } from '../../../shared/types'
 
 export interface UploadResult {
   blobId: string
   size: number
   type: string
+  name: string
+}
+
+export interface DownloadResult {
+  data: Buffer
+  contentType: string
   name: string
 }
 
@@ -33,4 +38,38 @@ export async function uploadAttachment(
   })
 
   return { blobId: raw.blobId, size: raw.size, type: raw.type ?? contentType, name }
+}
+
+/** Fetch a blob from Stalwart using the user's Bearer token (server-side only). */
+export async function downloadAttachment(
+  accessToken: string,
+  session: JmapSession,
+  blobId: string,
+  name: string,
+): Promise<DownloadResult> {
+  const url = buildDownloadUrl(session, blobId, name)
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+
+  if (!res.ok) {
+    throw createError({
+      statusCode: res.status === 401 || res.status === 403 ? 401 : 502,
+      statusMessage: `Attachment download failed (${res.status})`,
+    })
+  }
+
+  const data = Buffer.from(await res.arrayBuffer())
+  return {
+    data,
+    contentType: res.headers.get('content-type') ?? 'application/octet-stream',
+    name,
+  }
+}
+
+/** Browser-facing download URL — goes through our BFF so the session cookie auth works. */
+export function buildClientDownloadUrl(blobId: string, name: string): string {
+  const params = new URLSearchParams({ name })
+  return `/api/attachments/${encodeURIComponent(blobId)}?${params.toString()}`
 }

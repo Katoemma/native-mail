@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
 
   if (body.inReplyToEmailId) {
     try {
-      const original = await getEmailFull(client, jmapSession.accountId, body.inReplyToEmailId, jmapSession)
+      const original = await getEmailFull(client, jmapSession.accountId, body.inReplyToEmailId)
       const msgId = original.messageId  // e.g. "<abc123@mail.example.com>"
 
       if (msgId) {
