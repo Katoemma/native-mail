@@ -20,6 +20,7 @@ export function useSync() {
   let ws: ReturnType<typeof useWebSocket> | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let reconnectDelay = 2000   // starts at 2s, doubles up to 30s
+  let disposed = false
 
   // ── Sync logic ───────────────────────────────────────────────────────────
   let syncing = false
@@ -85,8 +86,14 @@ export function useSync() {
 
   // ── WebSocket connection ──────────────────────────────────────────────────
   function connect() {
-    if (!import.meta.client) return
+    if (!import.meta.client || disposed) return
     if (!sessionStore.loggedIn) return
+
+    // Drop any previous socket before opening a new one
+    if (ws) {
+      ws.close()
+      ws = null
+    }
 
     wsStatus.value = 'connecting'
 
@@ -100,11 +107,13 @@ export function useSync() {
       },
 
       onDisconnected() {
+        if (disposed) return
         wsStatus.value = 'disconnected'
         scheduleReconnect()
       },
 
       onError() {
+        if (disposed) return
         wsStatus.value = 'disconnected'
         scheduleReconnect()
       },
@@ -116,6 +125,21 @@ export function useSync() {
           ) as {
             type: string
             changed?: Record<string, Record<string, string>>
+            message?: string
+          }
+
+          if (msg.type === 'connected') {
+            wsStatus.value = 'connected'
+            return
+          }
+
+          // Stalwart side died — close our side and reconnect cleanly
+          if (msg.type === 'error' || msg.type === 'stalwart_error' || msg.type === 'stalwart_closed') {
+            wsStatus.value = 'disconnected'
+            ws?.close()
+            ws = null
+            scheduleReconnect()
+            return
           }
 
           if (msg.type === 'StateChange' && msg.changed) {
@@ -138,16 +162,18 @@ export function useSync() {
   }
 
   function disconnect() {
+    disposed = true
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
     ws?.close()
+    ws = null
     wsStatus.value = 'disconnected'
   }
 
   function scheduleReconnect() {
-    if (reconnectTimer) return
+    if (disposed || reconnectTimer) return
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null
-      if (sessionStore.loggedIn) connect()
+      if (!disposed && sessionStore.loggedIn) connect()
     }, reconnectDelay)
     // Exponential backoff: 2s → 4s → 8s → 16s → 30s max
     reconnectDelay = Math.min(reconnectDelay * 2, 30_000)

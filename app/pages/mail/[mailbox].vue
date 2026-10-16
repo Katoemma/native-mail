@@ -28,7 +28,9 @@ const activeMailbox = computed(() =>
 )
 
 watch(mailboxId, async (id) => {
-  if (id && !mailStore.idsByMailbox[id]?.length) {
+  if (!id) return
+  mailboxesStore.select(id)
+  if (!mailStore.idsByMailbox[id]?.length) {
     await mailStore.fetchList(id, true)
   }
 }, { immediate: true })
