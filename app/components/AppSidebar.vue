@@ -3,6 +3,7 @@ import {
   Inbox, FilePenLine, SendHorizontal, ShieldAlert, Trash2,
   SquarePen, Star,
 } from '@lucide/vue'
+import logoUrl from '~/assets/images/logo.png'
 import { avatarStyle, senderInitials } from '~/utils/avatar'
 import NavUser from '@/components/NavUser.vue'
 import { Label } from '@/components/ui/label'
@@ -162,7 +163,22 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
       collapsible="none"
       class="w-full border-r md:w-[calc(var(--sidebar-width-icon)+1px)]!"
     >
-      <SidebarHeader class="px-3 md:px-2">
+      <SidebarHeader class="gap-2 px-3 md:px-2">
+        <NuxtLink
+          to="/mail/inbox"
+          class="block px-1 py-1 md:hidden"
+          aria-label="Native Mail"
+          @click="closeMobileSidebar()"
+        >
+          <img
+            :src="logoUrl"
+            alt="Native"
+            class="h-7 w-auto"
+            width="640"
+            height="200"
+          >
+        </NuxtLink>
+
         <SidebarMenu>
           <SidebarMenuItem>
             <TooltipProvider :delay-duration="200">
