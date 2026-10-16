@@ -14,10 +14,10 @@ useHead({
 })
 
 const sessionStore = useSessionStore()
-const route        = useRoute()
+const route = useRoute()
 
 const oauthError = computed(() => route.query.error as string | undefined)
-const ready      = ref(false)
+const ready = ref(false)
 
 onMounted(async () => {
   requestAnimationFrame(() => { ready.value = true })
@@ -36,9 +36,7 @@ onMounted(async () => {
       <div class="login-orb login-orb-b absolute -bottom-32 -left-20 size-[24rem] rounded-full" />
       <svg
         class="login-envelope absolute right-[8%] top-1/2 hidden w-[min(42vw,28rem)] -translate-y-1/2 text-primary/10 lg:block"
-        viewBox="0 0 320 240"
-        fill="none"
-      >
+        viewBox="0 0 320 240" fill="none">
         <rect x="24" y="48" width="272" height="160" rx="18" stroke="currentColor" stroke-width="2" />
         <path d="M24 68 L160 148 L296 68" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
         <circle cx="248" cy="168" r="6" fill="currentColor" opacity="0.35" />
@@ -48,44 +46,37 @@ onMounted(async () => {
     </div>
 
     <div class="relative z-10 flex min-h-svh flex-col items-center justify-center px-6 py-12">
-      <div
-        :class="[
-          'w-full max-w-md transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]',
-          ready ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0',
-        ]"
-      >
-        <!-- Brand (hero signal) -->
-        <div class="mb-10 text-center">
+      <div :class="[
+        'w-full max-w-md transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]',
+        ready ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0',
+      ]">
+        <!-- Brand lockup -->
+        <div class="mb-10 flex flex-col items-center text-center">
           <div
             :class="[
-              'login-mark mx-auto mb-5 overflow-hidden rounded-2xl',
-              'transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]',
-              ready ? 'scale-100' : 'scale-95',
+              'w-full max-w-[300px] sm:max-w-[340px]',
+              'transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]',
+              ready ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0',
             ]"
           >
             <img
               :src="logoUrl"
               alt="Native"
-              class="mx-auto h-auto w-full max-w-[280px] object-contain sm:max-w-[320px]"
+              class="mx-auto h-12 w-auto max-w-full object-contain sm:h-14"
               width="640"
               height="200"
             >
           </div>
           <h1 class="sr-only">Native Mail</h1>
-          <p class="login-brand text-lg font-semibold tracking-tight text-foreground">
-            Mail
-          </p>
-          <p class="mt-2 text-[0.95rem] text-muted-foreground">
+          <p class="mt-5 max-w-xs text-[0.95rem] leading-relaxed text-muted-foreground">
             Secure mail for your day — powered by Stalwart.
           </p>
         </div>
 
         <!-- Error -->
-        <div
-          v-if="oauthError"
+        <div v-if="oauthError"
           class="mb-5 rounded-xl border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive"
-          role="alert"
-        >
+          role="alert">
           <p class="font-semibold">Authentication failed</p>
           <p class="mt-0.5 opacity-80">{{ oauthError }}</p>
         </div>
@@ -101,19 +92,15 @@ onMounted(async () => {
             </p>
           </div>
 
-          <button
-            type="button"
+          <button type="button"
             class="login-cta group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-[transform,opacity] duration-150 ease-out hover:opacity-95 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
-            :disabled="sessionStore.loading"
-            @click="sessionStore.startOAuth()"
-          >
+            :disabled="sessionStore.loading" @click="sessionStore.startOAuth()">
             <Loader2 v-if="sessionStore.loading" class="size-4 animate-spin" />
             <template v-else>
               <span>Continue securely</span>
               <ArrowRight
                 class="size-4 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5"
-                :stroke-width="2"
-              />
+                :stroke-width="2" />
             </template>
           </button>
 
@@ -166,11 +153,6 @@ onMounted(async () => {
   animation: loginFloat 14s ease-in-out infinite;
 }
 
-.login-mark {
-  box-shadow:
-    0 18px 40px -24px color-mix(in oklch, var(--foreground) 35%, transparent);
-}
-
 .login-panel {
   box-shadow:
     0 1px 0 color-mix(in oklch, white 70%, transparent) inset,
@@ -191,11 +173,19 @@ onMounted(async () => {
 }
 
 @keyframes loginFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .login-orb-a,
   .login-orb-b,
   .login-envelope {

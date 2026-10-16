@@ -51,7 +51,7 @@ const navItems = [
   { title: 'Inbox',  role: 'inbox'  as MailboxRole, icon: Inbox,          url: '/mail/inbox'  },
   { title: 'Drafts', role: 'drafts' as MailboxRole, icon: FilePenLine,    url: '/mail/drafts' },
   { title: 'Sent',   role: 'sent'   as MailboxRole, icon: SendHorizontal, url: '/mail/sent'   },
-  { title: 'Junk',   role: 'junk'   as MailboxRole, icon: ShieldAlert,    url: '/mail/junk'   },
+  { title: 'Spam',   role: 'junk'   as MailboxRole, icon: ShieldAlert,    url: '/mail/junk'   },
   { title: 'Trash',  role: 'trash'  as MailboxRole, icon: Trash2,         url: '/mail/trash'  },
 ]
 
@@ -135,12 +135,12 @@ function formatDate(iso: string | null): string {
     class="overflow-hidden *:data-[sidebar=sidebar]:flex-row"
     v-bind="props"
   >
-    <!-- ── First sidebar: icon strip ────────────────────────────────────── -->
+    <!-- ── First sidebar: full nav on mobile, icon rail on desktop ──────── -->
     <Sidebar
       collapsible="none"
-      class="w-[calc(var(--sidebar-width-icon)+1px)]! border-r"
+      class="w-full border-r md:w-[calc(var(--sidebar-width-icon)+1px)]!"
     >
-      <SidebarHeader>
+      <SidebarHeader class="px-3 md:px-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <TooltipProvider :delay-duration="200">
@@ -148,16 +148,23 @@ function formatDate(iso: string | null): string {
                 <TooltipTrigger as-child>
                   <SidebarMenuButton size="lg" as-child class="md:h-8 md:p-0">
                     <button type="button" @click="composer.openCompose()">
-                      <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                      <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shrink-0">
                         <SquarePen class="size-4" :stroke-width="1.75" />
                       </div>
-                      <div class="grid flex-1 text-left text-sm leading-tight">
-                        <span class="truncate font-medium">Compose</span>
+                      <div class="grid min-w-0 flex-1 text-left text-sm leading-tight md:hidden">
+                        <span class="truncate font-semibold tracking-tight">Compose</span>
+                        <span class="truncate text-xs text-muted-foreground">New message</span>
                       </div>
                     </button>
                   </SidebarMenuButton>
                 </TooltipTrigger>
-                <TooltipContent side="right" align="center">Compose</TooltipContent>
+                <TooltipContent
+                  side="right"
+                  align="center"
+                  :hidden="isMobile"
+                >
+                  Compose
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </SidebarMenuItem>
@@ -165,28 +172,30 @@ function formatDate(iso: string | null): string {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent class="px-1.5 md:px-0">
+        <SidebarGroup class="px-2 md:px-0">
+          <SidebarGroupContent>
             <TooltipProvider :delay-duration="200">
-              <SidebarMenu>
+              <SidebarMenu class="gap-1">
                 <SidebarMenuItem v-for="item in navItems" :key="item.title">
                   <Tooltip>
                     <TooltipTrigger as-child>
                       <SidebarMenuButton
                         :is-active="activeRole === item.role"
-                        class="relative px-2.5 md:px-2"
+                        class="relative h-11 gap-3 px-3 md:h-8 md:justify-center md:gap-2 md:px-2"
                         @click="navTo(item.role!, item.url)"
                       >
                         <component
                           :is="item.icon"
-                          class="size-[18px]"
+                          class="size-[18px] shrink-0"
                           :stroke-width="1.75"
                         />
-                        <span class="sr-only">{{ item.title }}</span>
-                        <!-- Unread badge -->
+                        <!-- Labels: visible in mobile drawer, icon-only on desktop -->
+                        <span class="truncate text-[0.9375rem] font-medium tracking-tight md:sr-only">
+                          {{ item.title }}
+                        </span>
                         <span
                           v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
-                          class="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[9px] font-bold leading-none"
+                          class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold tabular-nums text-primary-foreground md:absolute md:top-1 md:right-1 md:ml-0 md:size-4 md:min-w-0 md:px-0"
                         >
                           {{ mailboxesStore.byRole(item.role!)!.unreadEmails! > 9
                             ? '9+'
@@ -194,7 +203,11 @@ function formatDate(iso: string | null): string {
                         </span>
                       </SidebarMenuButton>
                     </TooltipTrigger>
-                    <TooltipContent side="right" align="center">
+                    <TooltipContent
+                      side="right"
+                      align="center"
+                      :hidden="isMobile"
+                    >
                       {{ item.title }}
                       <span
                         v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
@@ -211,7 +224,7 @@ function formatDate(iso: string | null): string {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter class="px-2 md:px-0">
         <NavUser :user="user" />
       </SidebarFooter>
     </Sidebar>
