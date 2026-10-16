@@ -185,11 +185,11 @@ function openCompose() {
         <button
           v-if="showComposeFab"
           type="button"
-          class="absolute bottom-5 right-4 z-30 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition active:scale-95 md:hidden"
-          aria-label="Compose"
+          class="absolute bottom-5 right-4 z-30 flex h-12 items-center gap-2 rounded-2xl bg-primary px-4 text-primary-foreground shadow-lg shadow-primary/25 transition active:scale-95 md:hidden"
           @click="openCompose"
         >
-          <SquarePen class="size-6" :stroke-width="1.75" />
+          <SquarePen class="size-5 shrink-0" :stroke-width="1.75" />
+          <span class="text-sm font-semibold tracking-tight">Compose</span>
         </button>
       </div>
     </SidebarInset>
