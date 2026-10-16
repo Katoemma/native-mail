@@ -232,31 +232,62 @@ function formatDate(iso: string | null): string {
               v-for="mail in panelEmails"
               :key="mail.id"
               :class="[
-                'w-full min-w-0 overflow-hidden text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex flex-col items-stretch gap-2 border-b p-4 text-sm leading-tight last:border-b-0 transition-colors',
-                !mail.isRead && 'bg-sidebar-accent/30 font-medium',
-                route.params.id === mail.id && 'bg-sidebar-accent text-sidebar-accent-foreground',
+                'group/mail relative w-full min-w-0 overflow-hidden text-left flex flex-col items-stretch gap-1 border-b px-4 py-3.5 text-sm leading-tight last:border-b-0 transition-colors',
+                route.query.id === mail.id
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'hover:bg-sidebar-accent/50',
+                !mail.isRead && route.query.id !== mail.id && 'bg-primary/[0.04]',
               ]"
               @click="selectMail(mail.id)"
             >
+              <!-- Unread accent bar -->
+              <span
+                v-if="!mail.isRead"
+                class="absolute inset-y-0 left-0 w-0.5 bg-primary"
+              />
+
               <div class="flex w-full min-w-0 items-center gap-2">
-                <!-- Unread dot -->
                 <span
-                  v-if="!mail.isRead"
-                  class="size-1.5 rounded-full bg-primary shrink-0"
+                  :class="[
+                    'size-1.5 rounded-full shrink-0',
+                    mail.isRead ? 'bg-transparent' : 'bg-primary',
+                  ]"
                 />
-                <span class="truncate min-w-0 flex-1">
+                <span
+                  :class="[
+                    'truncate min-w-0 flex-1',
+                    mail.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
+                  ]"
+                >
                   {{ mail.from[0]?.name || mail.from[0]?.email || '(unknown)' }}
                 </span>
                 <Star
                   v-if="mail.isStarred"
                   class="size-3 fill-amber-400 text-amber-400 shrink-0"
                 />
-                <span class="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                <span
+                  :class="[
+                    'text-xs whitespace-nowrap shrink-0 tabular-nums',
+                    mail.isRead ? 'text-muted-foreground' : 'text-foreground/70 font-medium',
+                  ]"
+                >
                   {{ formatDate(mail.receivedAt) }}
                 </span>
               </div>
-              <span class="font-medium truncate min-w-0">{{ mail.subject }}</span>
-              <span class="line-clamp-2 min-w-0 break-words text-xs text-muted-foreground font-normal">
+              <span
+                :class="[
+                  'truncate min-w-0 pl-3.5',
+                  mail.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground',
+                ]"
+              >
+                {{ mail.subject || '(no subject)' }}
+              </span>
+              <span
+                :class="[
+                  'line-clamp-2 min-w-0 break-words text-xs pl-3.5 font-normal',
+                  mail.isRead ? 'text-muted-foreground/80' : 'text-muted-foreground',
+                ]"
+              >
                 {{ mail.preview }}
               </span>
             </button>

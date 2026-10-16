@@ -28,23 +28,33 @@ const senderName = computed(() => {
 <template>
   <button
     :class="[
-      'w-full min-w-0 overflow-hidden text-left flex flex-col gap-1 px-4 py-3 border-b transition-colors',
+      'relative w-full min-w-0 overflow-hidden text-left flex flex-col gap-1 px-4 py-3 border-b transition-colors',
       active
         ? 'bg-accent text-accent-foreground'
         : 'hover:bg-muted/50',
-      !email.isRead && 'bg-muted/30',
+      !email.isRead && !active && 'bg-primary/[0.04]',
     ]"
     @click="emit('click', email.id)"
   >
-    <div class="flex min-w-0 items-center gap-2">
-      <!-- Unread dot -->
-      <span
-        v-if="!email.isRead"
-        class="size-2 rounded-full bg-primary shrink-0"
-      />
-      <span v-else class="size-2 shrink-0" />
+    <span
+      v-if="!email.isRead"
+      class="absolute inset-y-0 left-0 w-0.5 bg-primary"
+    />
 
-      <span :class="['min-w-0 flex-1 text-sm truncate', !email.isRead && 'font-semibold']">
+    <div class="flex min-w-0 items-center gap-2">
+      <span
+        :class="[
+          'size-2 rounded-full shrink-0',
+          email.isRead ? 'bg-transparent' : 'bg-primary',
+        ]"
+      />
+
+      <span
+        :class="[
+          'min-w-0 flex-1 text-sm truncate',
+          email.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
+        ]"
+      >
         {{ senderName }}
       </span>
 
@@ -59,17 +69,32 @@ const senderName = computed(() => {
         />
       </button>
 
-      <span class="text-xs text-muted-foreground shrink-0">
+      <span
+        :class="[
+          'text-xs shrink-0 tabular-nums',
+          email.isRead ? 'text-muted-foreground' : 'text-foreground/70 font-medium',
+        ]"
+      >
         {{ formatDate(email.receivedAt) }}
       </span>
     </div>
 
-    <div :class="['min-w-0 text-sm truncate pl-4', !email.isRead ? 'font-medium' : 'text-foreground']">
-      {{ email.subject }}
+    <div
+      :class="[
+        'min-w-0 text-sm truncate pl-4',
+        email.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground',
+      ]"
+    >
+      {{ email.subject || '(no subject)' }}
     </div>
 
     <div class="flex min-w-0 items-center gap-1 pl-4">
-      <span class="min-w-0 flex-1 text-xs text-muted-foreground truncate">{{ email.preview }}</span>
+      <span
+        :class="[
+          'min-w-0 flex-1 text-xs truncate',
+          email.isRead ? 'text-muted-foreground/80' : 'text-muted-foreground',
+        ]"
+      >{{ email.preview }}</span>
       <Paperclip v-if="email.hasAttachment" class="size-3 text-muted-foreground shrink-0" />
     </div>
   </button>
