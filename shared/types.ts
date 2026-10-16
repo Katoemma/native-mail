@@ -144,6 +144,13 @@ export interface AttachmentDraft {
   error?: string
 }
 
+export interface DraftAttachmentRef {
+  blobId: string
+  name: string
+  type: string
+  size?: number
+}
+
 export interface DraftPayload {
   to: MailAddress[]
   cc: MailAddress[]
@@ -151,7 +158,8 @@ export interface DraftPayload {
   subject: string
   textBody: string
   htmlBody?: string
-  attachmentBlobIds: string[]
+  /** Uploaded blobs with MIME metadata — required for correct multipart encoding */
+  attachments: DraftAttachmentRef[]
   inReplyToEmailId?: string
 }
 

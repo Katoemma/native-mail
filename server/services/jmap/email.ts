@@ -306,7 +306,7 @@ export async function createDraft(
     subject: string
     textBody?: string
     htmlBody?: string
-    attachmentBlobIds?: string[]
+    attachments?: Array<{ blobId: string; name: string; type: string; size?: number }>
     inReplyToEmailId?: string
     references?: string
     inReplyTo?: string
@@ -320,8 +320,8 @@ export async function createDraft(
   //  - Both             → multipart/alternative with two subParts
   //  - With attachments → wrap the above in multipart/mixed
   //
-  // A blank bodyStructure or multipart/mixed with empty subParts causes
-  // SMTP servers to reject the message with "missing From" / invalid body errors.
+  // Attachment parts MUST include type + name + disposition (RFC 8621).
+  // Without type, servers may emit the blob as raw body text (garbled JFIF).
 
   const bodyValues: Record<string, { value: string; charset?: string }> = {}
   let innerStructure: JmapBodyPart
@@ -349,9 +349,12 @@ export async function createDraft(
   }
 
   // Wrap in multipart/mixed if there are attachments
-  const attachmentParts: JmapBodyPart[] = (draft.attachmentBlobIds ?? []).map(blobId => ({
-    blobId,
+  const attachmentParts: JmapBodyPart[] = (draft.attachments ?? []).map(att => ({
+    blobId: att.blobId,
+    type: att.type || 'application/octet-stream',
+    name: att.name,
     disposition: 'attachment',
+    ...(typeof att.size === 'number' ? { size: att.size } : {}),
   }))
 
   const bodyStructure: JmapBodyPart = attachmentParts.length

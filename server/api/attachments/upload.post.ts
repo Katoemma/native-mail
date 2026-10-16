@@ -5,9 +5,10 @@ import { uploadAttachment } from '../../services/jmap/attachment'
 import type { ApiUploadResponse } from '../../../shared/types'
 
 export default defineEventHandler(async (event): Promise<ApiUploadResponse> => {
-  const session     = requireSession(event)
-  const raw         = await readRawBody(event)
-  if (!raw) throw createError({ statusCode: 400, statusMessage: 'No file data' })
+  const session = requireSession(event)
+  // encoding=false keeps raw bytes — default utf8 corrupts JPEG/PDF/etc.
+  const raw = await readRawBody(event, false)
+  if (!raw?.length) throw createError({ statusCode: 400, statusMessage: 'No file data' })
 
   const contentType = getHeader(event, 'content-type') ?? 'application/octet-stream'
   const name        = decodeURIComponent(getHeader(event, 'x-file-name') ?? 'attachment')
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event): Promise<ApiUploadResponse> => {
   const result      = await uploadAttachment(
     session.tokens.accessToken,
     jmapSession,
-    Buffer.from(raw),
+    Buffer.isBuffer(raw) ? raw : Buffer.from(raw),
     contentType,
     name,
   )

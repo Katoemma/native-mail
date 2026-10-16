@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
     subject:           body.subject,
     textBody:          body.textBody,
     htmlBody:          body.htmlBody,
-    attachmentBlobIds: body.attachmentBlobIds,
+    attachments: body.attachments ?? [],
     inReplyToEmailId:  body.inReplyToEmailId,
     inReplyTo,
     references,

@@ -22,21 +22,28 @@ export async function uploadAttachment(
   name: string,
 ): Promise<UploadResult> {
   const uploadUrl = buildUploadUrl(session)
+  // Native fetch + Uint8Array — ofetch can coerce Buffers incorrectly
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
 
-  const raw = await $fetch<{
-    blobId: string
-    size: number
-    type: string
-  }>(uploadUrl, {
+  const res = await fetch(uploadUrl, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
       'Content-Type': contentType,
       'X-JMAP-FileName': encodeURIComponent(name),
+      'Content-Length': String(bytes.byteLength),
     },
-    body: data,
+    body: bytes,
   })
 
+  if (!res.ok) {
+    throw createError({
+      statusCode: res.status === 401 || res.status === 403 ? 401 : 502,
+      statusMessage: `Attachment upload failed (${res.status})`,
+    })
+  }
+
+  const raw = await res.json() as { blobId: string; size: number; type?: string }
   return { blobId: raw.blobId, size: raw.size, type: raw.type ?? contentType, name }
 }
 

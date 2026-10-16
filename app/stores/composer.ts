@@ -43,8 +43,15 @@ export const useComposerStore = defineStore('composer', {
     readyToSend: (state) =>
       state.to.length > 0 && state.subject.trim().length > 0 && !state.sending,
 
-    uploadedBlobIds: (state) =>
-      state.attachments.filter(a => a.blobId).map(a => a.blobId!) ,
+    uploadedAttachments: (state) =>
+      state.attachments
+        .filter((a): a is AttachmentDraft & { blobId: string } => Boolean(a.blobId))
+        .map(a => ({
+          blobId: a.blobId,
+          name: a.name,
+          type: a.type || 'application/octet-stream',
+          size: a.size,
+        })),
   },
 
   actions: {
@@ -97,13 +104,13 @@ export const useComposerStore = defineStore('composer', {
       this.error = null
       try {
         const payload: DraftPayload = {
-          to:                this.to,
-          cc:                this.cc,
-          bcc:               this.bcc,
-          subject:           this.subject,
-          textBody:          this.body,
-          attachmentBlobIds: this.uploadedBlobIds,
-          inReplyToEmailId:  this.inReplyToEmailId ?? undefined,
+          to:               this.to,
+          cc:               this.cc,
+          bcc:              this.bcc,
+          subject:          this.subject,
+          textBody:         this.body,
+          attachments:      this.uploadedAttachments,
+          inReplyToEmailId: this.inReplyToEmailId ?? undefined,
         }
 
         if (this.draftId) {
@@ -197,7 +204,7 @@ export const useComposerStore = defineStore('composer', {
       this.attachments.push(draft)
 
       try {
-        const arrayBuffer = await file.arrayBuffer()
+        // Send the File blob directly — avoid ArrayBuffer/ofetch text coercion
         const res = await $fetch<{ blobId: string; name: string; size: number; type: string }>(
           '/api/attachments/upload',
           {
@@ -206,7 +213,7 @@ export const useComposerStore = defineStore('composer', {
               'Content-Type': file.type || 'application/octet-stream',
               'X-File-Name': encodeURIComponent(file.name),
             },
-            body: arrayBuffer,
+            body: file,
           },
         )
         const idx = this.attachments.findIndex(a => a.clientId === clientId)
