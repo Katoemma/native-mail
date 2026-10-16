@@ -89,94 +89,95 @@ function openCompose() {
     <AppSidebar />
 
     <SidebarInset class="flex flex-col overflow-hidden h-svh">
-      <header class="bg-background sticky top-0 z-20 flex shrink-0 flex-col gap-2 border-b px-4 py-3 md:gap-0 md:p-4">
-        <div class="flex items-center gap-2">
-          <SidebarTrigger class="-ml-1" />
-          <Separator
-            orientation="vertical"
-            class="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb class="min-w-0 flex-1">
-            <BreadcrumbList>
-              <BreadcrumbItem class="hidden md:block">
-                <BreadcrumbLink href="/mail/inbox">
-                  All Inboxes
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator class="hidden md:block" />
-              <BreadcrumbItem class="min-w-0">
-                <BreadcrumbPage class="truncate">{{ mailboxLabel }}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header class="bg-background sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b px-4 py-3 md:p-4">
+        <SidebarTrigger class="-ml-1 shrink-0" />
+        <Separator
+          orientation="vertical"
+          class="mr-1 hidden data-[orientation=vertical]:h-4 md:mr-2 md:block"
+        />
 
-          <div class="md:hidden">
-            <DropdownMenu>
-              <DropdownMenuTrigger as-child>
-                <button
-                  type="button"
-                  class="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted"
-                  aria-label="Account menu"
-                >
-                  <Avatar class="size-7 rounded-lg">
-                    <AvatarImage :src="user.avatar" :alt="user.name" />
-                    <AvatarFallback class="rounded-lg text-[10px] font-semibold">
-                      {{ initials }}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                class="w-56 rounded-lg"
-                align="end"
-                :side-offset="8"
-              >
-                <DropdownMenuLabel class="p-0 font-normal">
-                  <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar class="h-8 w-8 rounded-lg">
-                      <AvatarImage :src="user.avatar" :alt="user.name" />
-                      <AvatarFallback class="rounded-lg">{{ initials }}</AvatarFallback>
-                    </Avatar>
-                    <div class="grid min-w-0 flex-1 text-left text-sm leading-tight">
-                      <span class="truncate font-medium">{{ user.name }}</span>
-                      <span class="truncate text-xs text-muted-foreground">{{ user.email }}</span>
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <BadgeCheck class="size-4" />
-                    Account
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell class="size-4" />
-                    Notifications
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  class="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-                  @click="sessionStore.logout()"
-                >
-                  <LogOut class="size-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+        <!-- Desktop breadcrumb -->
+        <Breadcrumb class="hidden min-w-0 flex-1 md:block">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/mail/inbox">
+                All Inboxes
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem class="min-w-0">
+              <BreadcrumbPage class="truncate">{{ mailboxLabel }}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
-        <form class="md:hidden" @submit.prevent="searchNow">
+        <!-- Mobile: search on the same row as trigger + avatar -->
+        <form class="min-w-0 flex-1 md:hidden" @submit.prevent="searchNow">
           <Input
             v-model="searchQuery"
             type="search"
             placeholder="Search mail..."
-            class="h-9 border-0 bg-muted/40 shadow-none"
+            class="h-9 border border-border bg-background shadow-none"
             enterkeyhint="search"
             autocomplete="off"
           />
         </form>
+
+        <div class="shrink-0 md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center rounded-full p-0.5 ring-2 ring-green-500"
+                aria-label="Account menu"
+              >
+                <Avatar class="size-9 rounded-full">
+                  <AvatarImage :src="user.avatar" :alt="user.name" />
+                  <AvatarFallback class="rounded-full text-xs font-semibold">
+                    {{ initials }}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              class="w-56 rounded-lg"
+              align="end"
+              :side-offset="8"
+            >
+              <DropdownMenuLabel class="p-0 font-normal">
+                <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar class="h-8 w-8 rounded-lg">
+                    <AvatarImage :src="user.avatar" :alt="user.name" />
+                    <AvatarFallback class="rounded-lg">{{ initials }}</AvatarFallback>
+                  </Avatar>
+                  <div class="grid min-w-0 flex-1 text-left text-sm leading-tight">
+                    <span class="truncate font-medium">{{ user.name }}</span>
+                    <span class="truncate text-xs text-muted-foreground">{{ user.email }}</span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem>
+                  <BadgeCheck class="size-4" />
+                  Account
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Bell class="size-4" />
+                  Notifications
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                class="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                @click="sessionStore.logout()"
+              >
+                <LogOut class="size-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
 
       <div class="relative flex flex-1 w-full overflow-hidden">
