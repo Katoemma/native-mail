@@ -51,7 +51,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "DtO2LmoG.js",
+    "file": "Doe4ld4d.js",
     "name": "entry",
     "src": "../node_modules/nuxt/dist/app/entry.js",
     "isEntry": true,
@@ -62,14 +62,38 @@ const client_manifest = {
       "../node_modules/nuxt/dist/app/components/error-500.vue"
     ],
     "css": [
-      "entry.DQ3E-ICB.css"
+      "entry.DO_Du5CR.css"
     ]
   },
-  "entry.DQ3E-ICB.css": {
-    "file": "entry.DQ3E-ICB.css",
+  "entry.DO_Du5CR.css": {
+    "file": "entry.DO_Du5CR.css",
     "resourceType": "style",
     "prefetch": true,
     "preload": true
+  },
+  "_B1rRfT2R.js": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "B1rRfT2R.js",
+    "name": "useSearch",
+    "imports": [
+      "../node_modules/nuxt/dist/app/entry.js",
+      "_BZO9beSF.js"
+    ]
+  },
+  "_BZO9beSF.js": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "BZO9beSF.js",
+    "name": "avatar",
+    "imports": [
+      "_UWg9vwa-.js",
+      "../node_modules/nuxt/dist/app/entry.js"
+    ]
   },
   "_C1Di6hT-.js": {
     "resourceType": "script",
@@ -82,16 +106,16 @@ const client_manifest = {
       "../node_modules/nuxt/dist/app/entry.js"
     ]
   },
-  "_C8T0RnUU.js": {
+  "_CfHOsLu2.js": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "C8T0RnUU.js",
+    "file": "CfHOsLu2.js",
     "name": "MailThread",
     "imports": [
       "../node_modules/nuxt/dist/app/entry.js",
-      "_DBGFr4bH.js",
+      "_BZO9beSF.js",
       "_UWg9vwa-.js",
       "_DlAUqK2U.js"
     ],
@@ -104,6 +128,18 @@ const client_manifest = {
     "resourceType": "style",
     "prefetch": true,
     "preload": true
+  },
+  "_CmLV0zW7.js": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "CmLV0zW7.js",
+    "name": "MailListItem",
+    "imports": [
+      "../node_modules/nuxt/dist/app/entry.js",
+      "_BZO9beSF.js"
+    ]
   },
   "_D6X8Vwf-.js": {
     "resourceType": "script",
@@ -124,18 +160,6 @@ const client_manifest = {
     "resourceType": "image",
     "prefetch": true,
     "mimeType": "image/png"
-  },
-  "_DBGFr4bH.js": {
-    "resourceType": "script",
-    "module": true,
-    "prefetch": true,
-    "preload": true,
-    "file": "DBGFr4bH.js",
-    "name": "avatar",
-    "imports": [
-      "_UWg9vwa-.js",
-      "../node_modules/nuxt/dist/app/entry.js"
-    ]
   },
   "_DlAUqK2U.js": {
     "resourceType": "script",
@@ -175,16 +199,17 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "D87EihNG.js",
+    "file": "Cb8Y54lb.js",
     "name": "sidebarLayout",
     "src": "layouts/sidebarLayout.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_C1Di6hT-.js",
       "../node_modules/nuxt/dist/app/entry.js",
+      "_C1Di6hT-.js",
       "_D6X8Vwf-.js",
-      "_DBGFr4bH.js",
-      "_UWg9vwa-.js"
+      "_BZO9beSF.js",
+      "_UWg9vwa-.js",
+      "_B1rRfT2R.js"
     ]
   },
   "middleware/auth.ts": {
@@ -243,14 +268,15 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "kQjjTUPJ.js",
+    "file": "DL1_ul3y.js",
     "name": "_mailbox_",
     "src": "pages/mail/[mailbox].vue",
     "isDynamicEntry": true,
     "imports": [
-      "_C8T0RnUU.js",
+      "_CfHOsLu2.js",
+      "_CmLV0zW7.js",
+      "_BZO9beSF.js",
       "../node_modules/nuxt/dist/app/entry.js",
-      "_DBGFr4bH.js",
       "_UWg9vwa-.js",
       "_DlAUqK2U.js"
     ]
@@ -260,14 +286,33 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CdgrEIIU.js",
+    "file": "X9lQUSoU.js",
     "name": "_id_",
     "src": "pages/mail/[mailbox]/[id].vue",
     "isDynamicEntry": true,
     "imports": [
-      "_C8T0RnUU.js",
+      "_CfHOsLu2.js",
       "../node_modules/nuxt/dist/app/entry.js",
-      "_DBGFr4bH.js",
+      "_BZO9beSF.js",
+      "_UWg9vwa-.js",
+      "_DlAUqK2U.js"
+    ]
+  },
+  "pages/mail/search.vue": {
+    "resourceType": "script",
+    "module": true,
+    "prefetch": true,
+    "preload": true,
+    "file": "CDD_u2AQ.js",
+    "name": "search",
+    "src": "pages/mail/search.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_CfHOsLu2.js",
+      "_CmLV0zW7.js",
+      "_BZO9beSF.js",
+      "../node_modules/nuxt/dist/app/entry.js",
+      "_B1rRfT2R.js",
       "_UWg9vwa-.js",
       "_DlAUqK2U.js"
     ]

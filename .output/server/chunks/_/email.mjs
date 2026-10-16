@@ -215,9 +215,12 @@ async function createDraft(client, accountId, draftsMailboxId, draft) {
     bodyValues["1"] = { value: text, charset: "utf-8" };
     innerStructure = { partId: "1", type: "text/plain" };
   }
-  const attachmentParts = ((_b = draft.attachmentBlobIds) != null ? _b : []).map((blobId) => ({
-    blobId,
-    disposition: "attachment"
+  const attachmentParts = ((_b = draft.attachments) != null ? _b : []).map((att) => ({
+    blobId: att.blobId,
+    type: att.type || "application/octet-stream",
+    name: att.name,
+    disposition: "attachment",
+    ...typeof att.size === "number" ? { size: att.size } : {}
   }));
   const bodyStructure = attachmentParts.length ? {
     type: "multipart/mixed",

@@ -26,7 +26,7 @@ import '../../_/oauth.mjs';
 import '../../_/attachment.mjs';
 
 const index_post = defineEventHandler(async (event) => {
-  var _a;
+  var _a, _b;
   const session = requireSession(event);
   const body = await readBody(event);
   if (!body) throw createError({ statusCode: 400, statusMessage: "Body required" });
@@ -61,7 +61,7 @@ const index_post = defineEventHandler(async (event) => {
     subject: body.subject,
     textBody: body.textBody,
     htmlBody: body.htmlBody,
-    attachmentBlobIds: body.attachmentBlobIds,
+    attachments: (_b = body.attachments) != null ? _b : [],
     inReplyToEmailId: body.inReplyToEmailId,
     inReplyTo,
     references

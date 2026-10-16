@@ -23,15 +23,15 @@ import 'node:url';
 const upload_post = defineEventHandler(async (event) => {
   var _a, _b;
   const session = requireSession(event);
-  const raw = await readRawBody(event);
-  if (!raw) throw createError({ statusCode: 400, statusMessage: "No file data" });
+  const raw = await readRawBody(event, false);
+  if (!(raw == null ? void 0 : raw.length)) throw createError({ statusCode: 400, statusMessage: "No file data" });
   const contentType = (_a = getHeader(event, "content-type")) != null ? _a : "application/octet-stream";
   const name = decodeURIComponent((_b = getHeader(event, "x-file-name")) != null ? _b : "attachment");
   const jmapSession = await discoverJmapSession(session.tokens.accessToken, session.username);
   const result = await uploadAttachment(
     session.tokens.accessToken,
     jmapSession,
-    Buffer.from(raw),
+    Buffer.isBuffer(raw) ? raw : Buffer.from(raw),
     contentType,
     name
   );

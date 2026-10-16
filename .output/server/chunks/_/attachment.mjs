@@ -4,15 +4,24 @@ import { b as buildDownloadUrl, a as buildUploadUrl } from './session.mjs';
 async function uploadAttachment(accessToken, session, data, contentType, name) {
   var _a;
   const uploadUrl = buildUploadUrl(session);
-  const raw = await $fetch(uploadUrl, {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const res = await fetch(uploadUrl, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": contentType,
-      "X-JMAP-FileName": encodeURIComponent(name)
+      "X-JMAP-FileName": encodeURIComponent(name),
+      "Content-Length": String(bytes.byteLength)
     },
-    body: data
+    body: bytes
   });
+  if (!res.ok) {
+    throw createError({
+      statusCode: res.status === 401 || res.status === 403 ? 401 : 502,
+      statusMessage: `Attachment upload failed (${res.status})`
+    });
+  }
+  const raw = await res.json();
   return { blobId: raw.blobId, size: raw.size, type: (_a = raw.type) != null ? _a : contentType, name };
 }
 async function downloadAttachment(accessToken, session, blobId, name) {
