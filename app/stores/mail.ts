@@ -182,14 +182,9 @@ export const useMailStore = defineStore('mail', {
       delete this.fullEmails[id]
     },
 
-    applyChanges(mailboxId: string, created: string[], updated: string[], destroyed: string[]) {
-      // Remove destroyed
+    applyChanges(mailboxId: string, created: string[], _updated: string[], destroyed: string[]) {
       for (const id of destroyed) this._removeFromAllMailboxes(id)
-      // Invalidate updated (re-fetch on next view)
-      for (const id of updated) {
-        delete this.fullEmails[id]
-      }
-      // Created: will appear on next fetchList
+      // Do not wipe fullEmails for updates — that blanked the open viewer after mark-read.
       if (created.length || destroyed.length) {
         this.idsByMailbox[mailboxId] = (this.idsByMailbox[mailboxId] ?? []).filter(
           id => !destroyed.includes(id),
@@ -231,8 +226,31 @@ export const useMailStore = defineStore('mail', {
 
       for (const email of sorted) {
         this.emails[email.id] = email
+
+        // Merge into an open full email — never delete the body.
+        // Deleting fullEmails on $seen updates made the viewer flash empty
+        // right after opening an unread message (WS StateChange → Email/changes).
         if (updatedSet.has(email.id)) {
-          delete this.fullEmails[email.id]
+          const full = this.fullEmails[email.id]
+          if (full) {
+            this.fullEmails[email.id] = {
+              ...full,
+              subject: email.subject,
+              preview: email.preview,
+              keywords: email.keywords,
+              isRead: email.isRead,
+              isStarred: email.isStarred,
+              hasAttachment: email.hasAttachment,
+              mailboxIds: email.mailboxIds,
+              from: email.from,
+              to: email.to,
+              cc: email.cc,
+              replyTo: email.replyTo,
+              receivedAt: email.receivedAt,
+              sentAt: email.sentAt,
+              size: email.size,
+            }
+          }
         }
 
         const targetMailboxes = Object.keys(email.mailboxIds).filter(k => email.mailboxIds[k])

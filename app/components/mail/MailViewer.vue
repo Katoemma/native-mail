@@ -53,7 +53,8 @@ async function loadEmail(id: string) {
   replyBody.value = ''
   await mailStore.fetchOne(id)
   const e = mailStore.fullEmails[id]
-  if (e && !e.isRead) mailStore.markRead(id, true)
+  // Mark read in the background — don't await; WS sync must not blank the body
+  if (e && !e.isRead) void mailStore.markRead(id, true)
   isFetching.value = false
   requestAnimationFrame(() => { visible.value = true })
 }
