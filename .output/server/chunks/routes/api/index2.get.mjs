@@ -1,6 +1,6 @@
 import { d as defineEventHandler } from '../../nitro/nitro.mjs';
 import { w as withJmap } from '../../_/jmap-auth.mjs';
-import { g as getMailboxes } from '../../_/mailbox.mjs';
+import { g as getIdentities } from '../../_/identity.mjs';
 import 'node:http';
 import 'node:https';
 import 'node:crypto';
@@ -25,8 +25,8 @@ import '../../_/oauth.mjs';
 
 const index_get = defineEventHandler(async (event) => {
   return withJmap(event, async ({ client, jmapSession }) => {
-    const mailboxes = await getMailboxes(client, jmapSession.accountId);
-    return { mailboxes };
+    const identities = await getIdentities(client, jmapSession.accountId);
+    return { identities };
   });
 });
 

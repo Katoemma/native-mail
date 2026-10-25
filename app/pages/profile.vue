@@ -4,13 +4,29 @@ definePageMeta({
   middleware: ['auth'],
 })
 
-import { Bell, BellOff, ShieldAlert, Smartphone } from '@lucide/vue'
+import { Bell, BellOff, PenLine, ShieldAlert, Smartphone } from '@lucide/vue'
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import type { Identity } from '../../shared/types'
+
+const SIGNATURE_MAX = 2047
+
+const runtimeConfig = useRuntimeConfig()
+const defaultLogoPath = computed(() =>
+  (runtimeConfig.public.defaultSignatureLogo as string) || '/native-logo.png',
+)
+/** Absolute default so preview + email clients can load it */
+const defaultLogoAbsolute = computed(() => {
+  if (!import.meta.client) return defaultLogoPath.value
+  const path = defaultLogoPath.value
+  if (path.startsWith('http')) return path
+  return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`
+})
 
 const sessionStore = useSessionStore()
 const {
@@ -67,10 +83,125 @@ async function onNotifyChange(checked: boolean) {
   refreshStatus()
 }
 
+// ── Signature (Stalwart Identity) ────────────────────────────────────────────
+const identityId = ref<string | null>(null)
+const signature = ref('')
+const signatureSaved = ref('')
+const logoUrl = ref('')
+const logoUrlSaved = ref('')
+const signatureLoading = ref(true)
+const signatureSaving = ref(false)
+const signatureError = ref<string | null>(null)
+const signatureOk = ref(false)
+const logoBroken = ref(false)
+
+const signatureDirty = computed(() =>
+  signature.value !== signatureSaved.value
+  || logoUrl.value.trim() !== logoUrlSaved.value.trim(),
+)
+const signatureOverLimit = computed(() => signature.value.length > SIGNATURE_MAX)
+
+const safeLogoUrl = computed(() => {
+  const raw = logoUrl.value.trim()
+  if (!raw) return ''
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return ''
+    return u.toString()
+  }
+  catch {
+    return ''
+  }
+})
+
+const previewHtml = computed(() => {
+  const parts: string[] = []
+  const text = signature.value.trimEnd()
+  if (text) {
+    parts.push(
+      text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r\n|\r|\n/g, '<br>'),
+    )
+  }
+  const url = safeLogoUrl.value
+  if (url && !logoBroken.value) {
+    if (parts.length) parts.push('<br><br>')
+    const safe = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    parts.push(
+      `<img src="${safe}" alt="" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
+    )
+  }
+  return parts.join('')
+})
+
+watch(logoUrl, () => { logoBroken.value = false })
+
+async function loadIdentity() {
+  signatureLoading.value = true
+  signatureError.value = null
+  try {
+    const { identities } = await $fetch<{ identities: Identity[] }>('/api/identity')
+    const primary = identities[0]
+    identityId.value = primary?.id ?? null
+    const text = primary?.textSignature ?? ''
+    // Default to Native logo when none saved yet
+    const logo = (primary?.logoUrl?.trim() || defaultLogoAbsolute.value)
+    signature.value = text
+    signatureSaved.value = text
+    logoUrl.value = logo
+    logoUrlSaved.value = logo
+  }
+  catch (err: unknown) {
+    signatureError.value = err instanceof Error
+      ? err.message
+      : 'Failed to load signature'
+  }
+  finally {
+    signatureLoading.value = false
+  }
+}
+
+async function saveSignature() {
+  if (signatureOverLimit.value || signatureSaving.value) return
+  signatureSaving.value = true
+  signatureError.value = null
+  signatureOk.value = false
+  try {
+    const { identity } = await $fetch<{ identity: Identity }>('/api/identity', {
+      method: 'PATCH',
+      body: {
+        identityId: identityId.value,
+        textSignature: signature.value,
+        logoUrl: logoUrl.value.trim(),
+      },
+    })
+    identityId.value = identity.id
+    signature.value = identity.textSignature ?? ''
+    signatureSaved.value = signature.value
+    logoUrl.value = identity.logoUrl ?? ''
+    logoUrlSaved.value = logoUrl.value
+    signatureOk.value = true
+    setTimeout(() => { signatureOk.value = false }, 2000)
+  }
+  catch (err: unknown) {
+    const msg = (err as { data?: { statusMessage?: string }; statusMessage?: string })
+      ?.data?.statusMessage
+      ?? (err as { statusMessage?: string })?.statusMessage
+      ?? (err instanceof Error ? err.message : 'Failed to save signature')
+    signatureError.value = msg
+  }
+  finally {
+    signatureSaving.value = false
+  }
+}
+
 onMounted(async () => {
   refreshStatus()
-  // Default ON — enable unless the user previously opted out
-  await ensureEnabled()
+  void ensureEnabled()
+  await loadIdentity()
 })
 </script>
 
@@ -164,6 +295,117 @@ onMounted(async () => {
             >
               Updating…
             </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Signature -->
+      <section
+        id="signature"
+        class="mt-6 scroll-mt-24 rounded-2xl border p-5 sm:p-6"
+      >
+        <div class="flex items-start gap-4">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <PenLine class="size-5" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-base font-semibold tracking-tight">
+              Email signature
+            </h2>
+            <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Added at the end of new messages, replies, and forwards. Stored on your mail account.
+            </p>
+
+            <div v-if="signatureLoading" class="mt-4 h-28 animate-pulse rounded-xl bg-muted" />
+
+            <template v-else>
+              <label class="mt-4 block text-xs font-medium text-muted-foreground">
+                Logo URL
+                <input
+                  v-model="logoUrl"
+                  type="url"
+                  inputmode="url"
+                  :placeholder="defaultLogoAbsolute"
+                  class="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+              </label>
+              <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p class="text-[11px] leading-snug text-muted-foreground">
+                  Defaults to the Native logo. Paste another https URL to change it.
+                </p>
+                <button
+                  v-if="logoUrl.trim() !== defaultLogoAbsolute"
+                  type="button"
+                  class="text-[11px] font-medium text-primary hover:underline"
+                  @click="logoUrl = defaultLogoAbsolute"
+                >
+                  Use Native logo
+                </button>
+              </div>
+
+              <label class="mt-4 block text-xs font-medium text-muted-foreground">
+                Signature text
+                <textarea
+                  v-model="signature"
+                  rows="5"
+                  maxlength="4096"
+                  placeholder="Best regards,&#10;Your name"
+                  class="mt-1.5 w-full resize-y rounded-xl border border-input bg-background px-3.5 py-3 text-sm leading-relaxed text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  :aria-invalid="signatureOverLimit"
+                />
+              </label>
+
+              <div
+                v-if="previewHtml"
+                class="mt-4 rounded-xl border bg-muted/30 px-4 py-3"
+              >
+                <p class="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Preview
+                </p>
+                <div
+                  class="text-sm leading-relaxed text-foreground [&_img]:mb-2"
+                  v-html="previewHtml"
+                />
+              </div>
+              <p
+                v-if="logoUrl.trim() && logoBroken"
+                class="mt-2 text-xs text-destructive"
+              >
+                Couldn’t load that image URL — check it’s public https.
+              </p>
+              <!-- Hidden probe so we know if the logo URL loads -->
+              <img
+                v-if="safeLogoUrl"
+                :src="safeLogoUrl"
+                alt=""
+                class="pointer-events-none fixed size-0 opacity-0"
+                @error="logoBroken = true"
+                @load="logoBroken = false"
+              >
+
+              <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p
+                  class="text-xs tabular-nums"
+                  :class="signatureOverLimit ? 'text-destructive' : 'text-muted-foreground'"
+                >
+                  {{ signature.length }} / {{ SIGNATURE_MAX }}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  :disabled="!signatureDirty || signatureOverLimit || signatureSaving"
+                  @click="saveSignature"
+                >
+                  {{ signatureSaving ? 'Saving…' : signatureOk ? 'Saved' : 'Save signature' }}
+                </Button>
+              </div>
+              <p
+                v-if="signatureError"
+                class="mt-2 text-xs text-destructive"
+              >
+                {{ signatureError }}
+              </p>
+            </template>
           </div>
         </div>
       </section>

@@ -1,4 +1,4 @@
-import { l as useStorage } from '../nitro/nitro.mjs';
+import { m as useStorage } from '../nitro/nitro.mjs';
 import { randomBytes, createHash } from 'node:crypto';
 import 'node:http';
 import 'node:https';

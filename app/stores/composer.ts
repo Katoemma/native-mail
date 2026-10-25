@@ -9,6 +9,8 @@ interface ComposerState {
   bcc: MailAddress[]
   subject: string
   body: string
+  /** Cached Identity htmlSignature (may include logo <img>) */
+  htmlSignature: string
   attachments: AttachmentDraft[]
   /** Reply/forward context */
   inReplyToEmailId: string | null
@@ -20,6 +22,32 @@ interface ComposerState {
   lastSavedAt: number | null
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function textToHtml(text: string): string {
+  return escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>')
+}
+
+/** Build multipart HTML so logo in htmlSignature shows for HTML clients. */
+function buildHtmlBody(textBody: string, htmlSig: string): string | undefined {
+  const sig = htmlSig.trim()
+  if (!sig) return undefined
+  const marker = '\n\n-- \n'
+  const idx = textBody.lastIndexOf(marker)
+  if (idx >= 0) {
+    const main = textBody.slice(0, idx)
+    const mainHtml = main.trim() ? `${textToHtml(main)}<br><br>` : ''
+    return `${mainHtml}-- <br>${sig}`
+  }
+  return `${textToHtml(textBody)}<br><br>-- <br>${sig}`
+}
+
 export const useComposerStore = defineStore('composer', {
   state: (): ComposerState => ({
     open: false,
@@ -29,6 +57,7 @@ export const useComposerStore = defineStore('composer', {
     bcc: [],
     subject: '',
     body: '',
+    htmlSignature: '',
     attachments: [],
     inReplyToEmailId: null,
     threadId: null,
@@ -55,13 +84,47 @@ export const useComposerStore = defineStore('composer', {
   },
 
   actions: {
-    openCompose() {
+    /** Append Identity textSignature; cache htmlSignature (logo) for drafts. */
+    async applySignature() {
+      try {
+        const { identities } = await $fetch<{
+          identities: { textSignature?: string; htmlSignature?: string }[]
+        }>('/api/identity')
+        const primary = identities[0]
+        this.htmlSignature = primary?.htmlSignature?.trim() ?? ''
+        const sig = primary?.textSignature?.trimEnd() ?? ''
+        if (!sig && !this.htmlSignature) return
+        if (sig) {
+          if (this.body.includes(sig)) return
+          const block = `\n\n-- \n${sig}`
+          if (this.mode === 'forward' && this.body.startsWith('\n\n---------- Forwarded')) {
+            this.body = `${block}${this.body}`
+          }
+          else {
+            this.body = `${this.body}${block}`
+          }
+        }
+        else if (this.htmlSignature && !this.body.includes('-- ')) {
+          // Logo-only signature: keep a text delimiter for plain clients
+          const block = '\n\n-- \n'
+          this.body = this.mode === 'forward' && this.body.startsWith('\n\n---------- Forwarded')
+            ? `${block}${this.body}`
+            : `${this.body}${block}`
+        }
+      }
+      catch {
+        // Non-fatal — compose still works without a signature
+      }
+    },
+
+    async openCompose() {
       this.$reset()
       this.open = true
       this.mode = 'compose'
+      await this.applySignature()
     },
 
-    openReply(email: { id: string; threadId: string; from: MailAddress[]; subject: string }) {
+    async openReply(email: { id: string; threadId: string; from: MailAddress[]; subject: string }) {
       this.$reset()
       this.open = true
       this.mode = 'reply'
@@ -69,9 +132,10 @@ export const useComposerStore = defineStore('composer', {
       this.threadId = email.threadId
       this.to = [...email.from]
       this.subject = email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`
+      await this.applySignature()
     },
 
-    openReplyAll(email: {
+    async openReplyAll(email: {
       id: string
       threadId: string
       from: MailAddress[]
@@ -79,12 +143,12 @@ export const useComposerStore = defineStore('composer', {
       cc: MailAddress[]
       subject: string
     }) {
-      this.openReply(email)
+      await this.openReply(email)
       this.mode = 'replyAll'
       this.cc = [...email.to, ...email.cc]
     },
 
-    openForward(email: { id: string; threadId: string; subject: string; body?: string }) {
+    async openForward(email: { id: string; threadId: string; subject: string; body?: string }) {
       this.$reset()
       this.open = true
       this.mode = 'forward'
@@ -92,6 +156,7 @@ export const useComposerStore = defineStore('composer', {
       this.threadId = email.threadId
       this.subject = email.subject.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject}`
       if (email.body) this.body = `\n\n---------- Forwarded message ----------\n${email.body}`
+      await this.applySignature()
     },
 
     close() {
@@ -121,6 +186,7 @@ export const useComposerStore = defineStore('composer', {
           bcc:              this.bcc,
           subject:          this.subject,
           textBody:         this.body,
+          htmlBody:         buildHtmlBody(this.body, this.htmlSignature),
           attachments:      this.uploadedAttachments,
           inReplyToEmailId: this.inReplyToEmailId ?? undefined,
         }
