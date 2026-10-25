@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Inbox, FilePenLine, SendHorizontal, ShieldAlert, Trash2,
-  SquarePen, Star, Check, X, Loader2,
+  SquarePen, Star, Check, X, Loader2, Undo2,
 } from '@lucide/vue'
 import logoUrl from '~/assets/images/logo.png'
 import { avatarStyle, senderInitials } from '~/utils/avatar'
@@ -166,6 +166,14 @@ const bulkConfirmOpen = ref(false)
 watch(() => route.params.mailbox, () => clearSelection())
 watch(isSearchMode, () => clearSelection())
 
+function leaveIfOpenRemoved(ids: string[]) {
+  if (route.query.id && ids.includes(route.query.id as string)) {
+    void router.push(isSearchMode.value
+      ? { path: '/mail/search', query: { q: searchQuery.value.trim() } }
+      : `/mail/${activeRole.value}`)
+  }
+}
+
 async function runBulkTrash() {
   if (!selectedIds.value.length || bulkBusy.value) return
   bulkBusy.value = true
@@ -178,16 +186,28 @@ async function runBulkTrash() {
       await Promise.all(ids.map(id => mailStore.trash(id)))
     }
     clearSelection()
-    // Leave open email if it was deleted
-    if (route.query.id && ids.includes(route.query.id as string)) {
-      void router.push(isSearchMode.value
-        ? { path: '/mail/search', query: { q: searchQuery.value.trim() } }
-        : `/mail/${activeRole.value}`)
-    }
+    leaveIfOpenRemoved(ids)
   }
   finally {
     bulkBusy.value = false
     bulkConfirmOpen.value = false
+  }
+}
+
+/** Restore selected messages from Trash → Inbox */
+async function runBulkRestore() {
+  if (!selectedIds.value.length || bulkBusy.value) return
+  const inboxId = mailboxesStore.inbox?.id
+  if (!inboxId) return
+  bulkBusy.value = true
+  const ids = [...selectedIds.value]
+  try {
+    await Promise.all(ids.map(id => mailStore.move(id, inboxId)))
+    clearSelection()
+    leaveIfOpenRemoved(ids)
+  }
+  finally {
+    bulkBusy.value = false
   }
 }
 
@@ -384,6 +404,17 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
             {{ selectedCount }} selected
           </span>
           <button
+            v-if="isTrashFolder"
+            type="button"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+            :disabled="bulkBusy"
+            @click="runBulkRestore"
+          >
+            <Loader2 v-if="bulkBusy" class="size-3.5 animate-spin" />
+            <Undo2 v-else class="size-3.5" />
+            Restore
+          </button>
+          <button
             type="button"
             class="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
             :disabled="bulkBusy"
@@ -476,14 +507,9 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
               <button
                 type="button"
                 class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
-                :class="[
-                  isSelected(mail.id)
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-muted-foreground/40 bg-background',
-                  isSelected(mail.id) || hasSelection
-                    ? 'opacity-100'
-                    : 'opacity-0 group-hover/mail:opacity-100 focus-visible:opacity-100',
-                ]"
+                :class="isSelected(mail.id)
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-muted-foreground/40 bg-background'"
                 :aria-label="isSelected(mail.id) ? 'Deselect' : 'Select'"
                 :aria-pressed="isSelected(mail.id)"
                 @click.stop="toggleSelect(mail.id)"

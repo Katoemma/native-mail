@@ -4,7 +4,7 @@ import {
   Star, Archive, Trash2, MailOpen,
   Paperclip, Download, FileText, FileImage, File,
   MoreHorizontal, ChevronDown, Send, Loader2,
-  Copy, Check, ShieldAlert, ShieldCheck,
+  Copy, Check, ShieldAlert, ShieldCheck, Undo2,
 } from '@lucide/vue'
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -130,6 +130,14 @@ async function archive() {
 
 /** Move out of Spam → Inbox */
 async function notSpam() {
+  const inboxId = mailboxesStore.inbox?.id
+  if (!inboxId) return
+  await mailStore.move(props.emailId, inboxId)
+  emit('back')
+}
+
+/** Restore from Trash → Inbox */
+async function restoreFromTrash() {
   const inboxId = mailboxesStore.inbox?.id
   if (!inboxId) return
   await mailStore.move(props.emailId, inboxId)
@@ -444,6 +452,19 @@ const otherAttachments = computed(() =>
               </button>
             </TooltipTrigger>
             <TooltipContent>Mark unread</TooltipContent>
+          </Tooltip>
+
+          <Tooltip v-if="isInTrash">
+            <TooltipTrigger as-child>
+              <button
+                class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
+                aria-label="Restore"
+                @click="restoreFromTrash"
+              >
+                <Undo2 class="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Restore to Inbox</TooltipContent>
           </Tooltip>
 
           <Tooltip v-if="isInJunk">

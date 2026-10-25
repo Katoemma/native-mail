@@ -7,7 +7,7 @@ definePageMeta({
 import MailViewer from '@/components/mail/MailViewer.vue'
 import MailThread from '@/components/mail/MailThread.vue'
 import MailListItem from '@/components/mail/MailListItem.vue'
-import { Check, Trash2, X, Loader2 } from '@lucide/vue'
+import { Check, Trash2, X, Loader2, Undo2 } from '@lucide/vue'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,6 +97,20 @@ async function runBulkTrash() {
   }
 }
 
+async function runBulkRestore() {
+  if (!selectedIds.value.length || bulkBusy.value) return
+  const inboxId = mailboxesStore.inbox?.id
+  if (!inboxId) return
+  bulkBusy.value = true
+  try {
+    await Promise.all(selectedIds.value.map(id => mailStore.move(id, inboxId)))
+    clearSelection()
+  }
+  finally {
+    bulkBusy.value = false
+  }
+}
+
 const selectedEmail = computed(() =>
   selectedId.value ? (mailStore.emails[selectedId.value] ?? null) : null,
 )
@@ -151,6 +165,17 @@ function handleForward(id: string) {
           <span class="min-w-0 flex-1 text-sm font-medium tabular-nums">
             {{ selectedCount }} selected
           </span>
+          <button
+            v-if="isTrashFolder"
+            type="button"
+            class="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            :disabled="bulkBusy"
+            @click="runBulkRestore"
+          >
+            <Loader2 v-if="bulkBusy" class="size-4 animate-spin" />
+            <Undo2 v-else class="size-4" />
+            Restore
+          </button>
           <button
             type="button"
             class="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
