@@ -86,19 +86,19 @@ function normalizeLogoUrl(raw: string): string {
   }
 }
 
-/** Build Identity htmlSignature from plain text + optional hosted logo URL. */
+/** Build Identity htmlSignature from plain text + optional hosted logo URL (logo below text). */
 export function buildHtmlSignature(text: string, logoUrl?: string | null): string {
   const parts: string[] = []
+  const trimmed = text.trimEnd()
+  if (trimmed) {
+    parts.push(escapeHtml(trimmed).replace(/\r\n|\r|\n/g, '<br>'))
+  }
   const logo = normalizeLogoUrl(logoUrl ?? '')
   if (logo) {
+    if (parts.length) parts.push('<br><br>')
     parts.push(
       `<img src="${escapeHtml(logo)}" alt="" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
     )
-  }
-  const trimmed = text.trimEnd()
-  if (trimmed) {
-    if (parts.length) parts.push('<br><br>')
-    parts.push(escapeHtml(trimmed).replace(/\r\n|\r|\n/g, '<br>'))
   }
   return parts.join('')
 }

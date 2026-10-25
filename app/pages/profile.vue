@@ -104,22 +104,22 @@ const safeLogoUrl = computed(() => {
 
 const previewHtml = computed(() => {
   const parts: string[] = []
-  const url = safeLogoUrl.value
-  if (url && !logoBroken.value) {
-    const safe = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-    parts.push(
-      `<img src="${safe}" alt="" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
-    )
-  }
   const text = signature.value.trimEnd()
   if (text) {
-    if (parts.length) parts.push('<br><br>')
     parts.push(
       text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/\r\n|\r|\n/g, '<br>'),
+    )
+  }
+  const url = safeLogoUrl.value
+  if (url && !logoBroken.value) {
+    if (parts.length) parts.push('<br><br>')
+    const safe = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    parts.push(
+      `<img src="${safe}" alt="" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
     )
   }
   return parts.join('')
