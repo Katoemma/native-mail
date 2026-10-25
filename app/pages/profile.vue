@@ -4,13 +4,17 @@ definePageMeta({
   middleware: ['auth'],
 })
 
-import { Bell, BellOff, ShieldAlert, Smartphone } from '@lucide/vue'
+import { Bell, BellOff, PenLine, ShieldAlert, Smartphone } from '@lucide/vue'
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import type { Identity } from '../../shared/types'
+
+const SIGNATURE_MAX = 2047
 
 const sessionStore = useSessionStore()
 const {
@@ -67,10 +71,74 @@ async function onNotifyChange(checked: boolean) {
   refreshStatus()
 }
 
+// ── Signature (Stalwart Identity) ────────────────────────────────────────────
+const identityId = ref<string | null>(null)
+const signature = ref('')
+const signatureSaved = ref('')
+const signatureLoading = ref(true)
+const signatureSaving = ref(false)
+const signatureError = ref<string | null>(null)
+const signatureOk = ref(false)
+
+const signatureDirty = computed(() => signature.value !== signatureSaved.value)
+const signatureOverLimit = computed(() => signature.value.length > SIGNATURE_MAX)
+
+async function loadIdentity() {
+  signatureLoading.value = true
+  signatureError.value = null
+  try {
+    const { identities } = await $fetch<{ identities: Identity[] }>('/api/identity')
+    const primary = identities[0]
+    identityId.value = primary?.id ?? null
+    const text = primary?.textSignature ?? ''
+    signature.value = text
+    signatureSaved.value = text
+  }
+  catch (err: unknown) {
+    signatureError.value = err instanceof Error
+      ? err.message
+      : 'Failed to load signature'
+  }
+  finally {
+    signatureLoading.value = false
+  }
+}
+
+async function saveSignature() {
+  if (signatureOverLimit.value || signatureSaving.value) return
+  signatureSaving.value = true
+  signatureError.value = null
+  signatureOk.value = false
+  try {
+    const { identity } = await $fetch<{ identity: Identity }>('/api/identity', {
+      method: 'PATCH',
+      body: {
+        identityId: identityId.value,
+        textSignature: signature.value,
+      },
+    })
+    identityId.value = identity.id
+    signature.value = identity.textSignature ?? ''
+    signatureSaved.value = signature.value
+    signatureOk.value = true
+    setTimeout(() => { signatureOk.value = false }, 2000)
+  }
+  catch (err: unknown) {
+    const msg = (err as { data?: { statusMessage?: string }; statusMessage?: string })
+      ?.data?.statusMessage
+      ?? (err as { statusMessage?: string })?.statusMessage
+      ?? (err instanceof Error ? err.message : 'Failed to save signature')
+    signatureError.value = msg
+  }
+  finally {
+    signatureSaving.value = false
+  }
+}
+
 onMounted(async () => {
   refreshStatus()
-  // Default ON — enable unless the user previously opted out
-  await ensureEnabled()
+  void ensureEnabled()
+  await loadIdentity()
 })
 </script>
 
@@ -164,6 +232,61 @@ onMounted(async () => {
             >
               Updating…
             </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Signature -->
+      <section
+        id="signature"
+        class="mt-6 scroll-mt-24 rounded-2xl border p-5 sm:p-6"
+      >
+        <div class="flex items-start gap-4">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <PenLine class="size-5" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-base font-semibold tracking-tight">
+              Email signature
+            </h2>
+            <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Added at the end of new messages, replies, and forwards. Stored on your mail account.
+            </p>
+
+            <div v-if="signatureLoading" class="mt-4 h-28 animate-pulse rounded-xl bg-muted" />
+
+            <template v-else>
+              <textarea
+                v-model="signature"
+                rows="6"
+                maxlength="4096"
+                placeholder="Best regards,&#10;Your name"
+                class="mt-4 w-full resize-y rounded-xl border border-input bg-background px-3.5 py-3 text-sm leading-relaxed text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                :aria-invalid="signatureOverLimit"
+              />
+              <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p
+                  class="text-xs tabular-nums"
+                  :class="signatureOverLimit ? 'text-destructive' : 'text-muted-foreground'"
+                >
+                  {{ signature.length }} / {{ SIGNATURE_MAX }}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  :disabled="!signatureDirty || signatureOverLimit || signatureSaving"
+                  @click="saveSignature"
+                >
+                  {{ signatureSaving ? 'Saving…' : signatureOk ? 'Saved' : 'Save signature' }}
+                </Button>
+              </div>
+              <p
+                v-if="signatureError"
+                class="mt-2 text-xs text-destructive"
+              >
+                {{ signatureError }}
+              </p>
+            </template>
           </div>
         </div>
       </section>

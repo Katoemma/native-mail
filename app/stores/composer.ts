@@ -55,13 +55,37 @@ export const useComposerStore = defineStore('composer', {
   },
 
   actions: {
-    openCompose() {
+    /** Append Identity textSignature (Stalwart) if not already present. */
+    async applySignature() {
+      try {
+        const { identities } = await $fetch<{ identities: { textSignature?: string }[] }>(
+          '/api/identity',
+        )
+        const sig = identities[0]?.textSignature?.trimEnd() ?? ''
+        if (!sig) return
+        // Avoid duplicating if draft already contains this signature block
+        if (this.body.includes(sig)) return
+        const block = `\n\n-- \n${sig}`
+        if (this.mode === 'forward' && this.body.startsWith('\n\n---------- Forwarded')) {
+          this.body = `${block}${this.body}`
+        }
+        else {
+          this.body = `${this.body}${block}`
+        }
+      }
+      catch {
+        // Non-fatal — compose still works without a signature
+      }
+    },
+
+    async openCompose() {
       this.$reset()
       this.open = true
       this.mode = 'compose'
+      await this.applySignature()
     },
 
-    openReply(email: { id: string; threadId: string; from: MailAddress[]; subject: string }) {
+    async openReply(email: { id: string; threadId: string; from: MailAddress[]; subject: string }) {
       this.$reset()
       this.open = true
       this.mode = 'reply'
@@ -69,9 +93,10 @@ export const useComposerStore = defineStore('composer', {
       this.threadId = email.threadId
       this.to = [...email.from]
       this.subject = email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`
+      await this.applySignature()
     },
 
-    openReplyAll(email: {
+    async openReplyAll(email: {
       id: string
       threadId: string
       from: MailAddress[]
@@ -79,12 +104,12 @@ export const useComposerStore = defineStore('composer', {
       cc: MailAddress[]
       subject: string
     }) {
-      this.openReply(email)
+      await this.openReply(email)
       this.mode = 'replyAll'
       this.cc = [...email.to, ...email.cc]
     },
 
-    openForward(email: { id: string; threadId: string; subject: string; body?: string }) {
+    async openForward(email: { id: string; threadId: string; subject: string; body?: string }) {
       this.$reset()
       this.open = true
       this.mode = 'forward'
@@ -92,6 +117,7 @@ export const useComposerStore = defineStore('composer', {
       this.threadId = email.threadId
       this.subject = email.subject.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject}`
       if (email.body) this.body = `\n\n---------- Forwarded message ----------\n${email.body}`
+      await this.applySignature()
     },
 
     close() {

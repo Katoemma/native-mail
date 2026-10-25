@@ -127,6 +127,8 @@ export interface Identity {
   email: string
   replyTo: MailAddress[] | null
   bcc: MailAddress[] | null
+  textSignature: string
+  htmlSignature: string
 }
 
 // ---------------------------------------------------------------------------
