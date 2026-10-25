@@ -16,6 +16,18 @@ import type { Identity } from '../../shared/types'
 
 const SIGNATURE_MAX = 2047
 
+const runtimeConfig = useRuntimeConfig()
+const defaultLogoPath = computed(() =>
+  (runtimeConfig.public.defaultSignatureLogo as string) || '/native-logo.png',
+)
+/** Absolute default so preview + email clients can load it */
+const defaultLogoAbsolute = computed(() => {
+  if (!import.meta.client) return defaultLogoPath.value
+  const path = defaultLogoPath.value
+  if (path.startsWith('http')) return path
+  return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`
+})
+
 const sessionStore = useSessionStore()
 const {
   status,
@@ -135,7 +147,8 @@ async function loadIdentity() {
     const primary = identities[0]
     identityId.value = primary?.id ?? null
     const text = primary?.textSignature ?? ''
-    const logo = primary?.logoUrl ?? ''
+    // Default to Native logo when none saved yet
+    const logo = (primary?.logoUrl?.trim() || defaultLogoAbsolute.value)
     signature.value = text
     signatureSaved.value = text
     logoUrl.value = logo
@@ -312,13 +325,23 @@ onMounted(async () => {
                   v-model="logoUrl"
                   type="url"
                   inputmode="url"
-                  placeholder="https://native.co.ug/logo.png"
+                  :placeholder="defaultLogoAbsolute"
                   class="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
               </label>
-              <p class="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-                Host the image publicly (https). Don’t paste base64 — Stalwart caps signatures at ~2KB.
-              </p>
+              <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p class="text-[11px] leading-snug text-muted-foreground">
+                  Defaults to the Native logo. Paste another https URL to change it.
+                </p>
+                <button
+                  v-if="logoUrl.trim() !== defaultLogoAbsolute"
+                  type="button"
+                  class="text-[11px] font-medium text-primary hover:underline"
+                  @click="logoUrl = defaultLogoAbsolute"
+                >
+                  Use Native logo
+                </button>
+              </div>
 
               <label class="mt-4 block text-xs font-medium text-muted-foreground">
                 Signature text

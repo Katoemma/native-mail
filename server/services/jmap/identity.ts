@@ -25,6 +25,9 @@ const IDENTITY_PROPS = [
 /** Stalwart rejects signatures ≥ 2048 chars */
 export const SIGNATURE_MAX_CHARS = 2047
 
+/** App-hosted Native logo (path under /public) */
+export const DEFAULT_SIGNATURE_LOGO_PATH = '/native-logo.png'
+
 function mapIdentity(i: JmapIdentity): Identity {
   const htmlSignature = i.htmlSignature ?? ''
   return {
@@ -86,18 +89,38 @@ function normalizeLogoUrl(raw: string): string {
   }
 }
 
-/** Build Identity htmlSignature from plain text + optional hosted logo URL (logo below text). */
-export function buildHtmlSignature(text: string, logoUrl?: string | null): string {
+/**
+ * Resolve logo for email HTML. Empty → Native default.
+ * Relative paths are joined to requestOrigin (must be absolute for mail clients).
+ */
+export function resolveSignatureLogoUrl(
+  logoUrl: string | null | undefined,
+  requestOrigin: string,
+  defaultPath = DEFAULT_SIGNATURE_LOGO_PATH,
+): string {
+  const origin = requestOrigin.replace(/\/$/, '')
+  const raw = (logoUrl ?? '').trim()
+  if (!raw) {
+    return `${origin}${defaultPath.startsWith('/') ? defaultPath : `/${defaultPath}`}`
+  }
+  if (raw.startsWith('/')) {
+    return `${origin}${raw}`
+  }
+  return normalizeLogoUrl(raw) || `${origin}${DEFAULT_SIGNATURE_LOGO_PATH}`
+}
+
+/** Build Identity htmlSignature from plain text + logo URL (logo below text). */
+export function buildHtmlSignature(text: string, absoluteLogoUrl: string): string {
   const parts: string[] = []
   const trimmed = text.trimEnd()
   if (trimmed) {
     parts.push(escapeHtml(trimmed).replace(/\r\n|\r|\n/g, '<br>'))
   }
-  const logo = normalizeLogoUrl(logoUrl ?? '')
+  const logo = normalizeLogoUrl(absoluteLogoUrl)
   if (logo) {
     if (parts.length) parts.push('<br><br>')
     parts.push(
-      `<img src="${escapeHtml(logo)}" alt="" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
+      `<img src="${escapeHtml(logo)}" alt="Native" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
     )
   }
   return parts.join('')
@@ -108,7 +131,7 @@ export async function updateIdentitySignatures(
   accountId: string,
   identityId: string,
   textSignature: string,
-  logoUrl?: string | null,
+  absoluteLogoUrl: string,
 ): Promise<Identity> {
   if (textSignature.length > SIGNATURE_MAX_CHARS) {
     throw new JmapError(
@@ -119,7 +142,7 @@ export async function updateIdentitySignatures(
     )
   }
 
-  const htmlSignature = buildHtmlSignature(textSignature, logoUrl)
+  const htmlSignature = buildHtmlSignature(textSignature, absoluteLogoUrl)
   if (htmlSignature.length > SIGNATURE_MAX_CHARS) {
     throw new JmapError(
       'invalidArguments',

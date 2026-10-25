@@ -97,6 +97,8 @@ export default defineNuxtConfig({
     // Public (safe to expose)
     public: {
       appName: 'Native Mail',
+      /** Default signature logo (served from /public); override with full https URL if needed */
+      defaultSignatureLogo: process.env.NUXT_PUBLIC_DEFAULT_SIGNATURE_LOGO || '/native-logo.png',
     },
   },
 

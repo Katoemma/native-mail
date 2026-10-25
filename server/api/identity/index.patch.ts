@@ -1,9 +1,11 @@
-import { readBody } from 'h3'
+import { getRequestURL, readBody } from 'h3'
 import { withJmap } from '../../utils/jmap-auth'
 import {
   getIdentities,
+  resolveSignatureLogoUrl,
   updateIdentitySignatures,
   SIGNATURE_MAX_CHARS,
+  DEFAULT_SIGNATURE_LOGO_PATH,
 } from '../../services/jmap/identity'
 import type { Identity } from '../../../shared/types'
 
@@ -31,7 +33,14 @@ export default defineEventHandler(async (event): Promise<{ identity: Identity }>
     })
   }
 
-  const logoUrl = typeof body.logoUrl === 'string' ? body.logoUrl : (body.logoUrl ?? '')
+  const config = useRuntimeConfig()
+  const defaultPath = (config.public.defaultSignatureLogo as string) || DEFAULT_SIGNATURE_LOGO_PATH
+  const origin = getRequestURL(event).origin
+  const absoluteLogo = resolveSignatureLogoUrl(
+    typeof body.logoUrl === 'string' ? body.logoUrl : '',
+    origin,
+    defaultPath,
+  )
 
   return withJmap(event, async ({ client, jmapSession }) => {
     let identityId = body.identityId?.trim()
@@ -51,7 +60,7 @@ export default defineEventHandler(async (event): Promise<{ identity: Identity }>
       jmapSession.accountId,
       identityId,
       textSignature,
-      logoUrl,
+      absoluteLogo,
     )
     return { identity }
   })
