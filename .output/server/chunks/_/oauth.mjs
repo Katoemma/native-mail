@@ -94,7 +94,11 @@ async function refreshAccessToken(params) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString()
   });
-  return normaliseTokenResponse(raw);
+  const tokens = normaliseTokenResponse(raw);
+  if (!tokens.refreshToken) {
+    tokens.refreshToken = params.refreshToken;
+  }
+  return tokens;
 }
 function normaliseTokenResponse(raw) {
   var _a, _b, _c, _d;
