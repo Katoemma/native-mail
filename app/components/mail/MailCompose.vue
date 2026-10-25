@@ -39,13 +39,21 @@ function onCcKeydown(e: KeyboardEvent) {
   }
 }
 
-// Auto-save debounce
-let saveTimer: ReturnType<typeof setTimeout>
+// Auto-save debounce — never fire after close/send/$reset (that created empty drafts)
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+function clearAutosave() {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = undefined
+}
 watch([() => composer.body, () => composer.subject], () => {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => composer.saveDraft(), 3000)
+  clearAutosave()
+  if (!composer.open || composer.sending) return
+  saveTimer = setTimeout(() => {
+    if (!composer.open || composer.sending) return
+    void composer.saveDraft()
+  }, 3000)
 })
-onUnmounted(() => clearTimeout(saveTimer))
+onUnmounted(() => clearAutosave())
 
 // File picker
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -63,7 +71,15 @@ async function onFileChange(e: Event) {
 const minimised = ref(false)
 
 watch(() => composer.open, (open) => {
-  if (open) minimised.value = false
+  if (open) {
+    minimised.value = false
+  }
+  else {
+    clearAutosave()
+  }
+})
+watch(() => composer.sending, (sending) => {
+  if (sending) clearAutosave()
 })
 
 // On mobile, never keep a floating minimised chip

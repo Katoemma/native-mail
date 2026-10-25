@@ -98,8 +98,20 @@ export const useComposerStore = defineStore('composer', {
       this.open = false
     },
 
-    async saveDraft() {
+    async saveDraft(opts: { allowEmpty?: boolean } = {}) {
       if (this.saving) return
+
+      const empty =
+        !this.to.length
+        && !this.cc.length
+        && !this.bcc.length
+        && !this.subject.trim()
+        && !this.body.trim()
+        && !this.uploadedAttachments.length
+
+      // Never persist blank drafts (autosave after $reset used to do this)
+      if (empty && !opts.allowEmpty) return
+
       this.saving = true
       this.error = null
       try {
@@ -145,7 +157,8 @@ export const useComposerStore = defineStore('composer', {
         await this.saveDraft()
         if (!this.draftId) throw new Error('Could not create draft before sending')
 
-        await $fetch(`/api/emails/${this.draftId}/send`, { method: 'POST' })
+        const sentId = this.draftId
+        await $fetch(`/api/emails/${sentId}/send`, { method: 'POST' })
         this.open = false
         this.$reset()
       }
