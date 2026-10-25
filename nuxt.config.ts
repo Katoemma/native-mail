@@ -34,6 +34,9 @@ export default defineNuxtConfig({
   modules: ["shadcn-nuxt", "@vueuse/nuxt", "@pinia/nuxt", "@vite-pwa/nuxt"],
 
   pwa: {
+    strategies: 'injectManifest',
+    srcDir: 'service-worker',
+    filename: 'sw.ts',
     registerType: 'autoUpdate',
     manifest: {
       name: 'Native Mail',
@@ -64,16 +67,8 @@ export default defineNuxtConfig({
         },
       ],
     },
-    workbox: {
-      navigateFallback: '/',
+    injectManifest: {
       globPatterns: ['**/*.{js,css,html,png,ico,svg,woff2}'],
-      // API / auth / WS stay network-only (don't cache mail data offline)
-      runtimeCaching: [
-        {
-          urlPattern: /^https:\/\/.*\/api\/.*/i,
-          handler: 'NetworkOnly',
-        },
-      ],
     },
     client: {
       installPrompt: true,
@@ -81,6 +76,7 @@ export default defineNuxtConfig({
     devOptions: {
       enabled: true,
       type: 'module',
+      navigateFallback: '/',
     },
   },
 
