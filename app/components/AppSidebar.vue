@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Inbox, FilePenLine, SendHorizontal, ShieldAlert, Trash2,
-  SquarePen, Star,
+  SquarePen, Star, Check, X, Loader2,
 } from '@lucide/vue'
 import logoUrl from '~/assets/images/logo.png'
 import { avatarStyle, senderInitials } from '~/utils/avatar'
@@ -24,6 +24,16 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Switch } from '@/components/ui/switch'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { HTMLAttributes } from 'vue'
 import type { MailboxRole } from '../../shared/types'
 
@@ -133,6 +143,53 @@ const {
 const { searchNow } = useDebouncedMailSearch(350)
 
 const isSearchMode = computed(() => route.path === '/mail/search')
+
+const {
+  selected: selectedIds,
+  count: selectedCount,
+  hasSelection,
+  isSelected,
+  toggle: toggleSelect,
+  toggleAll,
+  clear: clearSelection,
+} = useMailSelection()
+
+const isTrashFolder = computed(() => activeRole.value === 'trash')
+const panelIds = computed(() => panelList.value.map(m => m.id))
+const allVisibleSelected = computed(() =>
+  panelIds.value.length > 0 && panelIds.value.every(id => selectedIds.value.includes(id)),
+)
+
+const bulkBusy = ref(false)
+const bulkConfirmOpen = ref(false)
+
+watch(() => route.params.mailbox, () => clearSelection())
+watch(isSearchMode, () => clearSelection())
+
+async function runBulkTrash() {
+  if (!selectedIds.value.length || bulkBusy.value) return
+  bulkBusy.value = true
+  const ids = [...selectedIds.value]
+  try {
+    if (isTrashFolder.value) {
+      await Promise.all(ids.map(id => mailStore.destroy(id)))
+    }
+    else {
+      await Promise.all(ids.map(id => mailStore.trash(id)))
+    }
+    clearSelection()
+    // Leave open email if it was deleted
+    if (route.query.id && ids.includes(route.query.id as string)) {
+      void router.push(isSearchMode.value
+        ? { path: '/mail/search', query: { q: searchQuery.value.trim() } }
+        : `/mail/${activeRole.value}`)
+    }
+  }
+  finally {
+    bulkBusy.value = false
+    bulkConfirmOpen.value = false
+  }
+}
 
 function openCompose() {
   closeMobileSidebar()
@@ -289,7 +346,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
     <!-- ── Second sidebar: mail list panel ──────────────────────────────── -->
     <Sidebar collapsible="none" class="hidden min-w-0 flex-1 md:flex">
       <SidebarHeader class="gap-3.5 border-b p-4">
-        <div class="flex w-full items-center justify-between">
+        <div class="flex w-full items-center justify-between gap-2">
           <div class="min-w-0">
             <div class="text-base font-medium text-foreground truncate">
               {{ isSearchMode ? 'Search' : (activeMailbox?.name ?? activeRole) }}
@@ -301,12 +358,53 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
               “{{ searchQuery.trim() }}” · {{ searchTotal }} result{{ searchTotal === 1 ? '' : 's' }}
             </p>
           </div>
-          <Label v-if="!isSearchMode" class="flex items-center gap-2 text-sm shrink-0">
+          <Label v-if="!isSearchMode && !hasSelection" class="flex items-center gap-2 text-sm shrink-0">
             <span>Unreads</span>
             <Switch v-model:checked="showUnreadOnly" class="shadow-none" />
           </Label>
         </div>
+
+        <!-- Bulk selection bar -->
+        <div
+          v-if="hasSelection"
+          class="flex items-center gap-2 rounded-lg border bg-muted/40 px-2 py-1.5"
+        >
+          <button
+            type="button"
+            class="flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
+            :class="allVisibleSelected
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-muted-foreground/40 bg-background'"
+            :aria-label="allVisibleSelected ? 'Deselect all' : 'Select all'"
+            @click="toggleAll(panelIds)"
+          >
+            <Check v-if="allVisibleSelected" class="size-3.5" :stroke-width="2.5" />
+          </button>
+          <span class="min-w-0 flex-1 text-xs font-medium tabular-nums">
+            {{ selectedCount }} selected
+          </span>
+          <button
+            type="button"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            :disabled="bulkBusy"
+            @click="isTrashFolder ? (bulkConfirmOpen = true) : runBulkTrash()"
+          >
+            <Loader2 v-if="bulkBusy" class="size-3.5 animate-spin" />
+            <Trash2 v-else class="size-3.5" />
+            {{ isTrashFolder ? 'Delete' : 'Trash' }}
+          </button>
+          <button
+            type="button"
+            class="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Clear selection"
+            @click="clearSelection"
+          >
+            <X class="size-3.5" />
+          </button>
+        </div>
+
         <Input
+          v-else
           v-model="searchQuery"
           type="search"
           class="bg-background h-8 w-full shadow-none"
@@ -354,23 +452,44 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
             </div>
 
             <!-- Mail list -->
-            <button
+            <div
               v-for="mail in panelList"
               :key="mail.id"
+              role="button"
+              tabindex="0"
               :class="[
-                'group/mail relative w-full min-w-0 overflow-hidden text-left flex gap-3 border-b px-4 py-3.5 text-sm leading-tight last:border-b-0 transition-colors',
+                'group/mail relative w-full min-w-0 overflow-hidden text-left flex gap-3 border-b px-4 py-3.5 text-sm leading-tight last:border-b-0 transition-colors cursor-pointer',
                 route.query.id === mail.id
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                   : 'hover:bg-sidebar-accent/50',
                 !mail.isRead && route.query.id !== mail.id && 'bg-primary/[0.04]',
+                isSelected(mail.id) && 'bg-primary/8',
               ]"
               @click="selectMail(mail.id)"
+              @keydown.enter.prevent="selectMail(mail.id)"
             >
-              <!-- Unread accent bar -->
               <span
                 v-if="!mail.isRead"
                 class="absolute inset-y-0 left-0 w-0.5 bg-primary"
               />
+
+              <button
+                type="button"
+                class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
+                :class="[
+                  isSelected(mail.id)
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-muted-foreground/40 bg-background',
+                  isSelected(mail.id) || hasSelection
+                    ? 'opacity-100'
+                    : 'opacity-0 group-hover/mail:opacity-100 focus-visible:opacity-100',
+                ]"
+                :aria-label="isSelected(mail.id) ? 'Deselect' : 'Select'"
+                :aria-pressed="isSelected(mail.id)"
+                @click.stop="toggleSelect(mail.id)"
+              >
+                <Check v-if="isSelected(mail.id)" class="size-3.5" :stroke-width="2.5" />
+              </button>
 
               <div
                 class="size-9 shrink-0 rounded-full flex items-center justify-center text-[11px] font-semibold select-none ring-1 ring-black/5"
@@ -424,10 +543,31 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                   {{ mail.preview }}
                 </span>
               </div>
-            </button>
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
+
+    <AlertDialog v-model:open="bulkConfirmOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {{ selectedCount }} message{{ selectedCount === 1 ? '' : 's' }} will be permanently deleted. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="bulkBusy">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            class="bg-destructive text-white hover:bg-destructive/90"
+            :disabled="bulkBusy"
+            @click.prevent="runBulkTrash"
+          >
+            {{ bulkBusy ? 'Deleting…' : 'Delete forever' }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </Sidebar>
 </template>

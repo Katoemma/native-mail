@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { Paperclip, Star } from '@lucide/vue'
+import { Paperclip, Star, Check } from '@lucide/vue'
 import type { MailMessage } from '../../../shared/types'
 import { avatarStyle, senderInitials } from '~/utils/avatar'
 
-const props = defineProps<{ email: MailMessage; active?: boolean }>()
-const emit = defineEmits<{ click: [id: string]; star: [id: string, val: boolean] }>()
+const props = defineProps<{
+  email: MailMessage
+  active?: boolean
+  selectable?: boolean
+  selected?: boolean
+}>()
+
+const emit = defineEmits<{
+  click: [id: string]
+  star: [id: string, val: boolean]
+  toggleSelect: [id: string]
+}>()
 
 function formatDate(iso: string | null): string {
   if (!iso) return ''
@@ -27,20 +37,39 @@ const avatar = computed(() => avatarStyle(from.value?.email || senderName.value)
 </script>
 
 <template>
-  <button
+  <div
     :class="[
-      'relative w-full min-w-0 overflow-hidden text-left flex gap-3 px-4 py-3 border-b transition-colors',
+      'relative w-full min-w-0 overflow-hidden text-left flex gap-3 px-4 py-3 border-b transition-colors cursor-pointer',
       active
         ? 'bg-accent text-accent-foreground'
         : 'hover:bg-muted/50',
       !email.isRead && !active && 'bg-primary/[0.04]',
+      selected && 'bg-primary/8',
     ]"
+    role="button"
+    tabindex="0"
     @click="emit('click', email.id)"
+    @keydown.enter.prevent="emit('click', email.id)"
   >
     <span
       v-if="!email.isRead"
       class="absolute inset-y-0 left-0 w-0.5 bg-primary"
     />
+
+    <!-- Selection checkbox -->
+    <button
+      v-if="selectable"
+      type="button"
+      class="mt-1.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
+      :class="selected
+        ? 'border-primary bg-primary text-primary-foreground'
+        : 'border-muted-foreground/40 bg-background hover:border-primary'"
+      :aria-label="selected ? 'Deselect' : 'Select'"
+      :aria-pressed="selected"
+      @click.stop="emit('toggleSelect', email.id)"
+    >
+      <Check v-if="selected" class="size-3.5" :stroke-width="2.5" />
+    </button>
 
     <!-- Avatar -->
     <div
@@ -105,5 +134,5 @@ const avatar = computed(() => avatarStyle(from.value?.email || senderName.value)
         <Paperclip v-if="email.hasAttachment" class="size-3 text-muted-foreground shrink-0" />
       </div>
     </div>
-  </button>
+  </div>
 </template>

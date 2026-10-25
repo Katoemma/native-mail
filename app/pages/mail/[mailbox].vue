@@ -7,7 +7,17 @@ definePageMeta({
 import MailViewer from '@/components/mail/MailViewer.vue'
 import MailThread from '@/components/mail/MailThread.vue'
 import MailListItem from '@/components/mail/MailListItem.vue'
-import { ArrowLeft } from '@lucide/vue'
+import { Check, Trash2, X, Loader2 } from '@lucide/vue'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 const mailboxesStore = useMailboxesStore()
 const mailStore      = useMailStore()
@@ -16,10 +26,19 @@ const composer       = useComposerStore()
 const route          = useRoute()
 const router         = useRouter()
 
+const {
+  selected: selectedIds,
+  count: selectedCount,
+  hasSelection,
+  isSelected,
+  toggle: toggleSelect,
+  toggleAll,
+  clear: clearSelection,
+} = useMailSelection()
+
 const mailboxSlug = computed(() => route.params.mailbox as string)
 const selectedId  = computed(() => (route.query.id as string) ?? null)
 
-// Resolve mailbox and load emails
 const mailboxId = computed(() =>
   mailboxesStore.list.find(m => m.role === mailboxSlug.value || m.id === mailboxSlug.value)?.id ?? null,
 )
@@ -27,7 +46,10 @@ const activeMailbox = computed(() =>
   mailboxesStore.list.find(m => m.role === mailboxSlug.value || m.id === mailboxSlug.value) ?? null,
 )
 
+const isTrashFolder = computed(() => mailboxSlug.value === 'trash')
+
 watch(mailboxId, async (id) => {
+  clearSelection()
   if (!id) return
   mailboxesStore.select(id)
   if (!mailStore.idsByMailbox[id]?.length) {
@@ -35,18 +57,46 @@ watch(mailboxId, async (id) => {
   }
 }, { immediate: true })
 
-// Mobile email list
 const mobileEmails = computed(() => {
   const ids = mailStore.idsByMailbox[mailboxId.value ?? ''] ?? []
   return ids.map(id => mailStore.emails[id]).filter(Boolean)
 })
 const mobileLoading = computed(() => mailStore.loadingList)
+const mobileIds = computed(() => mobileEmails.value.map(e => e.id))
+const allVisibleSelected = computed(() =>
+  mobileIds.value.length > 0 && mobileIds.value.every(id => selectedIds.value.includes(id)),
+)
 
 function selectEmail(id: string) {
+  if (hasSelection.value) {
+    toggleSelect(id)
+    return
+  }
   router.push({ path: `/mail/${mailboxSlug.value}`, query: { id } })
 }
 
-// Thread / viewer state
+const bulkBusy = ref(false)
+const bulkConfirmOpen = ref(false)
+
+async function runBulkTrash() {
+  if (!selectedIds.value.length || bulkBusy.value) return
+  bulkBusy.value = true
+  const ids = [...selectedIds.value]
+  try {
+    if (isTrashFolder.value) {
+      await Promise.all(ids.map(id => mailStore.destroy(id)))
+    }
+    else {
+      await Promise.all(ids.map(id => mailStore.trash(id)))
+    }
+    clearSelection()
+  }
+  finally {
+    bulkBusy.value = false
+    bulkConfirmOpen.value = false
+  }
+}
+
 const selectedEmail = computed(() =>
   selectedId.value ? (mailStore.emails[selectedId.value] ?? null) : null,
 )
@@ -58,8 +108,6 @@ const showThread = computed(() => {
 })
 
 function goBack() {
-  // On mobile: if an email is open, go back to the list
-  // On desktop: go back to the empty state
   router.push(`/mail/${mailboxSlug.value}`)
 }
 
@@ -83,29 +131,58 @@ function handleForward(id: string) {
 
 <template>
   <div class="flex flex-1 overflow-hidden h-full w-full">
-
-    <!--
-      ── MOBILE: email list (shown when no email selected) ───────────────
-      Hidden on md+ because the list lives in AppSidebar's second panel.
-    -->
     <div
       v-if="!selectedId"
       class="flex flex-col w-full h-full md:hidden"
     >
-      <!-- Header -->
       <div class="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-        <h2 class="font-semibold text-base">
-          {{ activeMailbox?.name ?? mailboxSlug }}
-        </h2>
-        <span
-          v-if="activeMailbox?.unreadEmails"
-          class="ml-1 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold"
-        >
-          {{ activeMailbox.unreadEmails }}
-        </span>
+        <template v-if="hasSelection">
+          <button
+            type="button"
+            class="flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
+            :class="allVisibleSelected
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-muted-foreground/40 bg-background'"
+            :aria-label="allVisibleSelected ? 'Deselect all' : 'Select all'"
+            @click="toggleAll(mobileIds)"
+          >
+            <Check v-if="allVisibleSelected" class="size-3.5" :stroke-width="2.5" />
+          </button>
+          <span class="min-w-0 flex-1 text-sm font-medium tabular-nums">
+            {{ selectedCount }} selected
+          </span>
+          <button
+            type="button"
+            class="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            :disabled="bulkBusy"
+            @click="isTrashFolder ? (bulkConfirmOpen = true) : runBulkTrash()"
+          >
+            <Loader2 v-if="bulkBusy" class="size-4 animate-spin" />
+            <Trash2 v-else class="size-4" />
+            {{ isTrashFolder ? 'Delete' : 'Trash' }}
+          </button>
+          <button
+            type="button"
+            class="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+            aria-label="Clear selection"
+            @click="clearSelection"
+          >
+            <X class="size-4" />
+          </button>
+        </template>
+        <template v-else>
+          <h2 class="font-semibold text-base">
+            {{ activeMailbox?.name ?? mailboxSlug }}
+          </h2>
+          <span
+            v-if="activeMailbox?.unreadEmails"
+            class="ml-1 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold"
+          >
+            {{ activeMailbox.unreadEmails }}
+          </span>
+        </template>
       </div>
 
-      <!-- Loading -->
       <div v-if="mobileLoading && !mobileEmails.length" class="flex-1 overflow-y-auto">
         <div v-for="i in 6" :key="i" class="flex flex-col gap-2 border-b px-4 py-3">
           <div class="flex gap-2">
@@ -117,37 +194,31 @@ function handleForward(id: string) {
         </div>
       </div>
 
-      <!-- Empty -->
       <div
         v-else-if="!mobileLoading && !mobileEmails.length"
         class="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground"
       >
-        <span class="text-4xl">📭</span>
         <p class="text-sm">No messages here</p>
       </div>
 
-      <!-- List -->
       <div v-else class="flex-1 overflow-y-auto">
         <MailListItem
           v-for="email in mobileEmails"
           :key="email.id"
           :email="email"
           :active="false"
+          selectable
+          :selected="isSelected(email.id)"
           @click="selectEmail"
+          @toggle-select="toggleSelect"
           @star="(id, val) => mailStore.markStarred(id, val)"
         />
       </div>
     </div>
 
-    <!--
-      ── VIEWER (both mobile when email selected, and desktop always) ─────
-      On mobile: only when ?id= is present
-      On desktop: always (empty state shown when no ?id=)
-    -->
     <div
       :class="[
         'flex flex-col flex-1 overflow-hidden h-full',
-        // Mobile: only show viewer when email is selected
         selectedId ? 'flex' : 'hidden md:flex',
       ]"
     >
@@ -169,16 +240,34 @@ function handleForward(id: string) {
         @forward="handleForward"
       />
 
-      <!-- Desktop empty state (no email selected) -->
       <div
         v-else
         class="flex flex-1 flex-col items-center justify-center h-full gap-3 text-muted-foreground select-none"
       >
-        <span class="text-6xl">✉️</span>
         <p class="text-sm font-medium">Select a message to read</p>
         <p class="text-xs">Choose from your {{ mailboxSlug }} on the left</p>
       </div>
     </div>
 
+    <AlertDialog v-model:open="bulkConfirmOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {{ selectedCount }} message{{ selectedCount === 1 ? '' : 's' }} will be permanently deleted. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel :disabled="bulkBusy">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            class="bg-destructive text-white hover:bg-destructive/90"
+            :disabled="bulkBusy"
+            @click.prevent="runBulkTrash"
+          >
+            {{ bulkBusy ? 'Deleting…' : 'Delete forever' }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
