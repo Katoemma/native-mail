@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X, Minus, Send, Paperclip, Loader2, ChevronDown } from '@lucide/vue'
+import { X, Minus, Plus, Send, Paperclip, Loader2, ChevronDown } from '@lucide/vue'
 import { useMediaQuery } from '@vueuse/core'
 
 const composer = useComposerStore()
@@ -67,12 +67,15 @@ async function onFileChange(e: Event) {
   if (fileInput.value) fileInput.value.value = ''
 }
 
-// Minimised state (desktop floating window only)
-const minimised = ref(false)
+// Desktop window chrome: normal | minimised | maximised
+type ComposeWindowMode = 'normal' | 'minimised' | 'maximised'
+const windowMode = ref<ComposeWindowMode>('normal')
+const isMinimised = computed(() => windowMode.value === 'minimised')
+const isMaximised = computed(() => windowMode.value === 'maximised')
 
 watch(() => composer.open, (open) => {
   if (open) {
-    minimised.value = false
+    windowMode.value = 'normal'
   }
   else {
     clearAutosave()
@@ -82,13 +85,31 @@ watch(() => composer.sending, (sending) => {
   if (sending) clearAutosave()
 })
 
-// On mobile, never keep a floating minimised chip
+// On mobile, never keep a floating window mode
 watch(isMobile, (mobile) => {
-  if (mobile) minimised.value = false
+  if (mobile) windowMode.value = 'normal'
 })
 
+function minimiseComposer() {
+  windowMode.value = 'minimised'
+}
+
+function maximiseComposer() {
+  windowMode.value = 'maximised'
+}
+
+function restoreComposer() {
+  windowMode.value = 'normal'
+}
+
+function onTitlebarClick() {
+  if (isMobile.value) return
+  if (isMinimised.value) restoreComposer()
+  else minimiseComposer()
+}
+
 function closeComposer() {
-  minimised.value = false
+  windowMode.value = 'normal'
   composer.close()
 }
 </script>
@@ -113,10 +134,11 @@ function closeComposer() {
         // Mobile: full screen sheet
         isMobile
           ? 'inset-0 h-dvh w-full rounded-none border-0 shadow-none'
-          // Desktop: floating window
-          : minimised
+          : isMinimised
             ? 'bottom-0 right-6 h-12 w-72 rounded-t-xl border shadow-2xl'
-            : 'bottom-0 right-6 h-[min(520px,85dvh)] w-[min(560px,calc(100vw-2rem))] rounded-t-xl border shadow-2xl',
+            : isMaximised
+              ? 'inset-3 rounded-xl border shadow-2xl'
+              : 'bottom-0 right-6 h-[min(520px,85dvh)] w-[min(560px,calc(100vw-2rem))] rounded-t-xl border shadow-2xl',
       ]"
     >
       <!-- Header -->
@@ -125,9 +147,12 @@ function closeComposer() {
           'flex shrink-0 items-center gap-2 border-b bg-muted/50 select-none',
           isMobile
             ? 'px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]'
-            : 'cursor-pointer rounded-t-xl px-4 py-2.5',
+            : [
+                'group/titlebar cursor-pointer px-3.5 py-2.5',
+                isMaximised ? 'rounded-t-xl' : 'rounded-t-xl',
+              ],
         ]"
-        @click="!isMobile && (minimised = !minimised)"
+        @click="onTitlebarClick"
       >
         <button
           v-if="isMobile"
@@ -143,27 +168,63 @@ function closeComposer() {
           {{ composer.subject || 'New Message' }}
         </span>
 
-        <template v-if="!isMobile">
+        <!-- Desktop: traffic lights on the right -->
+        <div
+          v-if="!isMobile"
+          class="flex shrink-0 items-center gap-2"
+          @click.stop
+        >
           <button
+            v-if="!isMinimised"
             type="button"
-            class="rounded p-0.5 hover:bg-muted"
+            class="group/min flex size-3 items-center justify-center rounded-full bg-[#febc2e] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.12)] transition-[filter] hover:brightness-95 active:brightness-90"
             aria-label="Minimize"
-            @click.stop="minimised = !minimised"
+            @click="minimiseComposer"
           >
-            <Minus class="size-3.5" />
+            <Minus
+              class="size-2 text-[#995700] opacity-0 transition-opacity group-hover/titlebar:opacity-100 group-focus-visible/min:opacity-100"
+              :stroke-width="3"
+            />
+          </button>
+          <button
+            v-if="!isMaximised"
+            type="button"
+            class="group/max flex size-3 items-center justify-center rounded-full bg-[#28c840] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.12)] transition-[filter] hover:brightness-95 active:brightness-90"
+            :aria-label="isMinimised ? 'Restore' : 'Maximize'"
+            @click="isMinimised ? restoreComposer() : maximiseComposer()"
+          >
+            <Plus
+              class="size-2 text-[#006500] opacity-0 transition-opacity group-hover/titlebar:opacity-100 group-focus-visible/max:opacity-100"
+              :stroke-width="3"
+            />
+          </button>
+          <button
+            v-else
+            type="button"
+            class="group/restore flex size-3 items-center justify-center rounded-full bg-[#28c840] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.12)] transition-[filter] hover:brightness-95 active:brightness-90"
+            aria-label="Restore"
+            @click="restoreComposer"
+          >
+            <Minus
+              class="size-2 rotate-45 text-[#006500] opacity-0 transition-opacity group-hover/titlebar:opacity-100 group-focus-visible/restore:opacity-100"
+              :stroke-width="3"
+            />
           </button>
           <button
             type="button"
-            class="rounded p-0.5 hover:bg-muted"
+            class="group/close flex size-3 items-center justify-center rounded-full bg-[#ff5f57] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.12)] transition-[filter] hover:brightness-95 active:brightness-90"
             aria-label="Close"
-            @click.stop="closeComposer"
+            @click="closeComposer"
           >
-            <X class="size-3.5" />
+            <X
+              class="size-2 text-[#4d0000] opacity-0 transition-opacity group-hover/titlebar:opacity-100 group-focus-visible/close:opacity-100"
+              :stroke-width="3"
+            />
           </button>
-        </template>
+        </div>
 
         <button
-          v-else
+          v-if="isMobile"
           type="button"
           class="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label="Close"
@@ -174,7 +235,7 @@ function closeComposer() {
       </div>
 
       <!-- Body (hidden when desktop-minimised) -->
-      <template v-if="!minimised || isMobile">
+      <template v-if="!isMinimised || isMobile">
         <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 
           <!-- To field -->
