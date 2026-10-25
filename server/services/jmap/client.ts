@@ -29,9 +29,9 @@ export class JmapClient {
     private accessToken: string,
   ) {}
 
-  async request(methodCalls: unknown[][]): Promise<JmapResponse> {
+  async request(methodCalls: unknown[][], using: string[] = JMAP_USING): Promise<JmapResponse> {
     const body = {
-      using: JMAP_USING,
+      using,
       methodCalls,
     }
 

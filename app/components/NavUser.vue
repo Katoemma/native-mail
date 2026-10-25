@@ -75,7 +75,6 @@ const initials = computed(() => {
           align="end"
           :side-offset="4"
         >
-          <!-- User identity -->
           <DropdownMenuLabel class="p-0 font-normal">
             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
               <Avatar class="h-8 w-8 rounded-lg">
@@ -92,11 +91,11 @@ const initials = computed(() => {
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
-            <DropdownMenuItem>
+            <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile')">
               <BadgeCheck class="size-4" />
               Account
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile#notifications')">
               <Bell class="size-4" />
               Notifications
             </DropdownMenuItem>
@@ -104,7 +103,6 @@ const initials = computed(() => {
 
           <DropdownMenuSeparator />
 
-          <!-- Logout — calls sessionStore.logout() which clears cookie + redirects -->
           <DropdownMenuItem
             class="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
             @click="sessionStore.logout()"

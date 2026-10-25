@@ -1,5 +1,5 @@
 import { c as createError } from '../nitro/nitro.mjs';
-import { b as buildDownloadUrl, a as buildUploadUrl } from './session.mjs';
+import { b as buildUploadUrl, a as buildDownloadUrl } from './session.mjs';
 
 async function uploadAttachment(accessToken, session, data, contentType, name) {
   var _a;

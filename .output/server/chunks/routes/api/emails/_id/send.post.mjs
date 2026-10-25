@@ -1,6 +1,5 @@
 import { d as defineEventHandler, g as getRouterParam, c as createError } from '../../../../nitro/nitro.mjs';
-import { r as requireSession, d as discoverJmapSession } from '../../../../_/session.mjs';
-import { c as createJmapClient } from '../../../../_/client.mjs';
+import { w as withJmap } from '../../../../_/jmap-auth.mjs';
 import { g as getIdentities } from '../../../../_/identity.mjs';
 import { g as getMailboxes } from '../../../../_/mailbox.mjs';
 import 'node:http';
@@ -21,6 +20,8 @@ import 'node:buffer';
 import 'node:fs';
 import 'node:path';
 import 'node:url';
+import '../../../../_/session.mjs';
+import '../../../../_/client.mjs';
 import '../../../../_/oauth.mjs';
 
 async function submitEmail(client, accountId, emailId, identityId, draftsMailboxId, sentMailboxId) {
@@ -60,27 +61,26 @@ async function submitEmail(client, accountId, emailId, identityId, draftsMailbox
 }
 
 const send_post = defineEventHandler(async (event) => {
-  const session = requireSession(event);
   const emailId = getRouterParam(event, "id");
-  const jmapSession = await discoverJmapSession(session.tokens.accessToken, session.username);
-  const client = await createJmapClient(session.tokens, jmapSession.apiUrl, event);
-  const identities = await getIdentities(client, jmapSession.accountId);
-  if (!identities.length)
-    throw createError({ statusCode: 500, statusMessage: "No sending identity found" });
-  const mailboxes = await getMailboxes(client, jmapSession.accountId);
-  const draftsMb = mailboxes.find((m) => m.role === "drafts");
-  const sentMb = mailboxes.find((m) => m.role === "sent");
-  if (!draftsMb) throw createError({ statusCode: 500, statusMessage: "Drafts mailbox not found" });
-  if (!sentMb) throw createError({ statusCode: 500, statusMessage: "Sent mailbox not found" });
-  const submissionId = await submitEmail(
-    client,
-    jmapSession.accountId,
-    emailId,
-    identities[0].id,
-    draftsMb.id,
-    sentMb.id
-  );
-  return { submissionId, emailId };
+  return withJmap(event, async ({ client, jmapSession }) => {
+    const identities = await getIdentities(client, jmapSession.accountId);
+    if (!identities.length)
+      throw createError({ statusCode: 500, statusMessage: "No sending identity found" });
+    const mailboxes = await getMailboxes(client, jmapSession.accountId);
+    const draftsMb = mailboxes.find((m) => m.role === "drafts");
+    const sentMb = mailboxes.find((m) => m.role === "sent");
+    if (!draftsMb) throw createError({ statusCode: 500, statusMessage: "Drafts mailbox not found" });
+    if (!sentMb) throw createError({ statusCode: 500, statusMessage: "Sent mailbox not found" });
+    const submissionId = await submitEmail(
+      client,
+      jmapSession.accountId,
+      emailId,
+      identities[0].id,
+      draftsMb.id,
+      sentMb.id
+    );
+    return { submissionId, emailId };
+  });
 });
 
 export { send_post as default };

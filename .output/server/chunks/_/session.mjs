@@ -1,4 +1,4 @@
-import { u as useRuntimeConfig, h as getCookie, c as createError, e as setCookie, i as deleteCookie, l as useStorage } from '../nitro/nitro.mjs';
+import { e as setCookie, u as useRuntimeConfig, h as getCookie, i as deleteCookie, c as createError, l as useStorage } from '../nitro/nitro.mjs';
 import { createHmac } from 'node:crypto';
 
 const COOKIE_NAME = "nm_session";
@@ -86,6 +86,36 @@ function extractJmapError(methodResponses) {
   }
   return null;
 }
+function jmapErrorToStatus(type) {
+  switch (type) {
+    case "authenticationFailed":
+      return 401;
+    case "notFound":
+      return 404;
+    case "forbidden":
+      return 403;
+    case "accountNotFound":
+      return 404;
+    case "invalidArguments":
+      return 400;
+    case "invalidPatch":
+      return 400;
+    case "stateMismatch":
+      return 409;
+    case "serverFail":
+      return 500;
+    case "serverUnavailable":
+      return 503;
+    case "overQuota":
+      return 507;
+    case "tooLarge":
+      return 413;
+    case "rateLimit":
+      return 429;
+    default:
+      return 500;
+  }
+}
 
 async function discoverJmapSession(accessToken, username) {
   var _a, _b, _c, _d, _e, _f, _g;
@@ -134,5 +164,5 @@ function buildUploadUrl(session) {
   return session.uploadUrl.replace("{accountId}", session.accountId);
 }
 
-export { JmapError as J, buildUploadUrl as a, buildDownloadUrl as b, clearSessionCookie as c, discoverJmapSession as d, refreshSessionTokens as e, extractJmapError as f, getSession as g, decodeSession as h, invalidateJmapSession as i, requireSession as r, setSessionCookie as s };
+export { JmapError as J, buildDownloadUrl as a, buildUploadUrl as b, clearSessionCookie as c, discoverJmapSession as d, extractJmapError as e, refreshSessionTokens as f, getSession as g, decodeSession as h, invalidateJmapSession as i, jmapErrorToStatus as j, requireSession as r, setSessionCookie as s };
 //# sourceMappingURL=session.mjs.map

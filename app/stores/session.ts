@@ -33,6 +33,8 @@ export const useSessionStore = defineStore('session', {
     },
 
     async logout() {
+      // Drop Stalwart push subscription before clearing the session cookie
+      await teardownWebPush().catch(() => {})
       await $fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
       this.$reset()
       await navigateTo('/login')

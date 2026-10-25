@@ -37,16 +37,21 @@ const sessionStore = useSessionStore()
 const composer = useComposerStore()
 const route = useRoute()
 
+const { ensureEnabled } = useWebPush()
+
 const { setupFocusSync } = useSync()
 onMounted(async () => {
   await mailboxesStore.fetch()
   setupFocusSync()
+  // Notifications default ON after login (skips if user opted out)
+  void ensureEnabled()
 })
 
 // Debounced search lives here so mobile header + desktop sidebar share one watcher
 const { query: searchQuery, searchNow } = useDebouncedMailSearch(350)
 
 const mailboxLabel = computed(() => {
+  if (route.path === '/profile') return 'Profile'
   if (route.path === '/mail/search') return 'Search'
   const slug = (route.params.mailbox as string | undefined) ?? ''
   if (!slug) return 'Inbox'
@@ -158,11 +163,11 @@ function openCompose() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem>
+                <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile')">
                   <BadgeCheck class="size-4" />
                   Account
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile#notifications')">
                   <Bell class="size-4" />
                   Notifications
                 </DropdownMenuItem>
