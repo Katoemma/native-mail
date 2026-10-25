@@ -1,4 +1,4 @@
-import { k as defineWebSocketHandler, u as useRuntimeConfig } from '../../nitro/nitro.mjs';
+import { l as defineWebSocketHandler, u as useRuntimeConfig } from '../../nitro/nitro.mjs';
 import { d as discoverJmapSession, h as decodeSession } from '../../_/session.mjs';
 import { isTokenExpired, discoverOAuthMetadata, refreshAccessToken } from '../../_/oauth.mjs';
 import 'node:http';
