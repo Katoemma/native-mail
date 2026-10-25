@@ -199,7 +199,13 @@ export async function refreshAccessToken(params: {
     body:    body.toString(),
   })
 
-  return normaliseTokenResponse(raw)
+  const tokens = normaliseTokenResponse(raw)
+  // Stalwart often omits refresh_token on refresh unless rotating —
+  // keep the previous one so the next expiry doesn't strand the session.
+  if (!tokens.refreshToken) {
+    tokens.refreshToken = params.refreshToken
+  }
+  return tokens
 }
 
 // ---------------------------------------------------------------------------

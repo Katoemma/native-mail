@@ -87,18 +87,40 @@ export async function resolveAccessToken(
   const { discoverOAuthMetadata } = await import('../stalwart/oauth')
   const metadata = await discoverOAuthMetadata(config.jmapBaseUrl)
 
-  const refreshed = await refreshAccessToken({
-    tokenEndpoint: metadata.token_endpoint,
-    clientId:      config.oauthClientId,
-    clientSecret:  config.oauthClientSecret,
-    refreshToken:  tokens.refreshToken,
-  })
+  try {
+    const refreshed = await refreshAccessToken({
+      tokenEndpoint: metadata.token_endpoint,
+      clientId:      config.oauthClientId,
+      clientSecret:  config.oauthClientSecret,
+      refreshToken:  tokens.refreshToken,
+    })
 
-  if (event) {
-    refreshSessionTokens(event, refreshed)
+    if (event) {
+      refreshSessionTokens(event, refreshed)
+    }
+
+    // Keep in-memory tokens in sync for callers that still hold the old object
+    tokens.accessToken  = refreshed.accessToken
+    tokens.refreshToken = refreshed.refreshToken
+    tokens.expiresAt    = refreshed.expiresAt
+    tokens.tokenType    = refreshed.tokenType
+    tokens.scope        = refreshed.scope
+
+    return refreshed.accessToken
   }
-
-  return refreshed.accessToken
+  catch (err: unknown) {
+    const status = (err as { statusCode?: number; status?: number; response?: { status?: number } })
+    const code = status.statusCode ?? status.status ?? status.response?.status
+    if (code === 400 || code === 401) {
+      throw new JmapError(
+        'authenticationFailed',
+        'Refresh token rejected — please sign in again',
+        undefined,
+        401,
+      )
+    }
+    throw err
+  }
 }
 
 /**

@@ -66,6 +66,8 @@ export default defineWebSocketHandler({
           refreshToken:  session.tokens.refreshToken,
         })
         accessToken = refreshed.accessToken
+        // Note: WS upgrade can't easily rewrite the httpOnly cookie here.
+        // HTTP routes refresh + persist; this keeps the live socket alive.
       }
     }
     catch (err: unknown) {

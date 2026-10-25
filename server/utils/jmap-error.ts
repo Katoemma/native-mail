@@ -32,6 +32,7 @@ export function extractJmapError(methodResponses: unknown[][]): JmapError | null
 /** Maps common JMAP error types to HTTP status codes for BFF responses. */
 export function jmapErrorToStatus(type: string): number {
   switch (type) {
+    case 'authenticationFailed': return 401
     case 'notFound': return 404
     case 'forbidden': return 403
     case 'accountNotFound': return 404

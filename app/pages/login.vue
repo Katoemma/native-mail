@@ -17,6 +17,7 @@ const sessionStore = useSessionStore()
 const route = useRoute()
 
 const oauthError = computed(() => route.query.error as string | undefined)
+const sessionExpired = computed(() => route.query.reason === 'session_expired')
 const ready = ref(false)
 
 onMounted(async () => {
@@ -73,7 +74,13 @@ onMounted(async () => {
           </p>
         </div>
 
-        <!-- Error -->
+        <!-- Errors -->
+        <div v-if="sessionExpired"
+          class="mb-5 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-foreground"
+          role="status">
+          <p class="font-semibold">Session expired</p>
+          <p class="mt-0.5 text-muted-foreground">Please sign in again to continue.</p>
+        </div>
         <div v-if="oauthError"
           class="mb-5 rounded-xl border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive"
           role="alert">
