@@ -162,38 +162,42 @@ function handleForward(id: string) {
           >
             <Check v-if="allVisibleSelected" class="size-3.5" :stroke-width="2.5" />
           </button>
-          <span class="min-w-0 flex-1 text-sm font-medium tabular-nums">
+          <span class="shrink-0 text-sm font-medium tabular-nums whitespace-nowrap">
             {{ selectedCount }} selected
           </span>
-          <button
-            v-if="isTrashFolder"
-            type="button"
-            class="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
-            :disabled="bulkBusy"
-            @click="runBulkRestore"
-          >
-            <Loader2 v-if="bulkBusy" class="size-4 animate-spin" />
-            <Undo2 v-else class="size-4" />
-            Restore
-          </button>
-          <button
-            type="button"
-            class="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-            :disabled="bulkBusy"
-            @click="isTrashFolder ? (bulkConfirmOpen = true) : runBulkTrash()"
-          >
-            <Loader2 v-if="bulkBusy" class="size-4 animate-spin" />
-            <Trash2 v-else class="size-4" />
-            {{ isTrashFolder ? 'Delete' : 'Trash' }}
-          </button>
-          <button
-            type="button"
-            class="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-            aria-label="Clear selection"
-            @click="clearSelection"
-          >
-            <X class="size-4" />
-          </button>
+          <div class="ml-auto flex shrink-0 items-center gap-0.5">
+            <button
+              v-if="isTrashFolder"
+              type="button"
+              class="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+              :disabled="bulkBusy"
+              :aria-label="'Restore'"
+              @click="runBulkRestore"
+            >
+              <Loader2 v-if="bulkBusy" class="size-4 shrink-0 animate-spin" />
+              <Undo2 v-else class="size-4 shrink-0" />
+              <span class="hidden xs:inline sm:inline">Restore</span>
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              :disabled="bulkBusy"
+              :aria-label="isTrashFolder ? 'Delete' : 'Trash'"
+              @click="isTrashFolder ? (bulkConfirmOpen = true) : runBulkTrash()"
+            >
+              <Loader2 v-if="bulkBusy" class="size-4 shrink-0 animate-spin" />
+              <Trash2 v-else class="size-4 shrink-0" />
+              <span class="hidden sm:inline">{{ isTrashFolder ? 'Delete' : 'Trash' }}</span>
+            </button>
+            <button
+              type="button"
+              class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+              aria-label="Clear selection"
+              @click="clearSelection"
+            >
+              <X class="size-4" />
+            </button>
+          </div>
         </template>
         <template v-else>
           <h2 class="font-semibold text-base">

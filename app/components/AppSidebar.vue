@@ -384,10 +384,10 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
           </Label>
         </div>
 
-        <!-- Bulk selection bar -->
+        <!-- Bulk selection bar — under folder title, not in the message toolbar -->
         <div
           v-if="hasSelection"
-          class="flex items-center gap-2 rounded-lg border bg-muted/40 px-2 py-1.5"
+          class="flex w-full min-w-0 items-center gap-2 rounded-lg border bg-muted/40 px-2 py-1.5"
         >
           <button
             type="button"
@@ -400,38 +400,49 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
           >
             <Check v-if="allVisibleSelected" class="size-3.5" :stroke-width="2.5" />
           </button>
-          <span class="min-w-0 flex-1 text-xs font-medium tabular-nums">
+          <span class="shrink-0 text-xs font-medium tabular-nums whitespace-nowrap">
             {{ selectedCount }} selected
           </span>
-          <button
-            v-if="isTrashFolder"
-            type="button"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-            :disabled="bulkBusy"
-            @click="runBulkRestore"
-          >
-            <Loader2 v-if="bulkBusy" class="size-3.5 animate-spin" />
-            <Undo2 v-else class="size-3.5" />
-            Restore
-          </button>
-          <button
-            type="button"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-            :disabled="bulkBusy"
-            @click="isTrashFolder ? (bulkConfirmOpen = true) : runBulkTrash()"
-          >
-            <Loader2 v-if="bulkBusy" class="size-3.5 animate-spin" />
-            <Trash2 v-else class="size-3.5" />
-            {{ isTrashFolder ? 'Delete' : 'Trash' }}
-          </button>
-          <button
-            type="button"
-            class="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Clear selection"
-            @click="clearSelection"
-          >
-            <X class="size-3.5" />
-          </button>
+          <div class="ml-auto flex shrink-0 items-center gap-0.5">
+            <Tooltip v-if="isTrashFolder">
+              <TooltipTrigger as-child>
+                <button
+                  type="button"
+                  class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                  :disabled="bulkBusy"
+                  @click="runBulkRestore"
+                >
+                  <Loader2 v-if="bulkBusy" class="size-3.5 shrink-0 animate-spin" />
+                  <Undo2 v-else class="size-3.5 shrink-0" />
+                  <span class="hidden sm:inline">Restore</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Restore to Inbox</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  type="button"
+                  class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  :disabled="bulkBusy"
+                  @click="isTrashFolder ? (bulkConfirmOpen = true) : runBulkTrash()"
+                >
+                  <Loader2 v-if="bulkBusy" class="size-3.5 shrink-0 animate-spin" />
+                  <Trash2 v-else class="size-3.5 shrink-0" />
+                  <span class="hidden sm:inline">{{ isTrashFolder ? 'Delete' : 'Trash' }}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{{ isTrashFolder ? 'Delete forever' : 'Move to Trash' }}</TooltipContent>
+            </Tooltip>
+            <button
+              type="button"
+              class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Clear selection"
+              @click="clearSelection"
+            >
+              <X class="size-3.5" />
+            </button>
+          </div>
         </div>
 
         <Input
