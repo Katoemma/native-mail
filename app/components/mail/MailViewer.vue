@@ -4,7 +4,7 @@ import {
   Star, Archive, Trash2, MailOpen,
   Paperclip, Download, FileText, FileImage, File,
   MoreHorizontal, ChevronDown, Send, Loader2,
-  Copy, Check,
+  Copy, Check, ShieldAlert, ShieldCheck,
 } from '@lucide/vue'
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -65,6 +65,7 @@ const confirmOpen = ref(false)
 const confirming  = ref(false)
 
 const trashMailboxId = computed(() => mailboxesStore.trash?.id ?? null)
+const junkMailboxId  = computed(() => mailboxesStore.junk?.id ?? null)
 
 /** Already in Trash → permanent delete; otherwise move to Trash */
 const isInTrash = computed(() => {
@@ -72,6 +73,13 @@ const isInTrash = computed(() => {
   const trashId = trashMailboxId.value
   if (!e || !trashId) return false
   return !!e.mailboxIds?.[trashId]
+})
+
+const isInJunk = computed(() => {
+  const e = email.value
+  const junkId = junkMailboxId.value
+  if (!e || !junkId) return false
+  return !!e.mailboxIds?.[junkId]
 })
 
 const confirmTitle = computed(() =>
@@ -118,6 +126,22 @@ async function confirmTrash() {
 async function archive() {
   const archiveId = mailboxesStore.byRole('archive')?.id
   if (archiveId) { await mailStore.move(props.emailId, archiveId); emit('back') }
+}
+
+/** Move out of Spam → Inbox */
+async function notSpam() {
+  const inboxId = mailboxesStore.inbox?.id
+  if (!inboxId) return
+  await mailStore.move(props.emailId, inboxId)
+  emit('back')
+}
+
+/** Report as Spam → Junk */
+async function reportSpam() {
+  const junkId = junkMailboxId.value
+  if (!junkId) return
+  await mailStore.move(props.emailId, junkId)
+  emit('back')
 }
 
 async function markUnread() {
@@ -422,7 +446,33 @@ const otherAttachments = computed(() =>
             <TooltipContent>Mark unread</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
+          <Tooltip v-if="isInJunk">
+            <TooltipTrigger as-child>
+              <button
+                class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
+                aria-label="Not spam"
+                @click="notSpam"
+              >
+                <ShieldCheck class="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Not spam — move to Inbox</TooltipContent>
+          </Tooltip>
+
+          <Tooltip v-else-if="junkMailboxId && !isInTrash">
+            <TooltipTrigger as-child>
+              <button
+                class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
+                aria-label="Report spam"
+                @click="reportSpam"
+              >
+                <ShieldAlert class="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Report spam</TooltipContent>
+          </Tooltip>
+
+          <Tooltip v-if="!isInJunk">
             <TooltipTrigger as-child>
               <button
                 class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
