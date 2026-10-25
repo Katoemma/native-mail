@@ -10,6 +10,7 @@ import type { Identity } from '../../../shared/types'
 interface PatchBody {
   identityId?: string
   textSignature?: string
+  logoUrl?: string | null
 }
 
 export default defineEventHandler(async (event): Promise<{ identity: Identity }> => {
@@ -30,6 +31,8 @@ export default defineEventHandler(async (event): Promise<{ identity: Identity }>
     })
   }
 
+  const logoUrl = typeof body.logoUrl === 'string' ? body.logoUrl : (body.logoUrl ?? '')
+
   return withJmap(event, async ({ client, jmapSession }) => {
     let identityId = body.identityId?.trim()
     if (!identityId) {
@@ -48,6 +51,7 @@ export default defineEventHandler(async (event): Promise<{ identity: Identity }>
       jmapSession.accountId,
       identityId,
       textSignature,
+      logoUrl,
     )
     return { identity }
   })

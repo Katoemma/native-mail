@@ -75,13 +75,57 @@ async function onNotifyChange(checked: boolean) {
 const identityId = ref<string | null>(null)
 const signature = ref('')
 const signatureSaved = ref('')
+const logoUrl = ref('')
+const logoUrlSaved = ref('')
 const signatureLoading = ref(true)
 const signatureSaving = ref(false)
 const signatureError = ref<string | null>(null)
 const signatureOk = ref(false)
+const logoBroken = ref(false)
 
-const signatureDirty = computed(() => signature.value !== signatureSaved.value)
+const signatureDirty = computed(() =>
+  signature.value !== signatureSaved.value
+  || logoUrl.value.trim() !== logoUrlSaved.value.trim(),
+)
 const signatureOverLimit = computed(() => signature.value.length > SIGNATURE_MAX)
+
+const safeLogoUrl = computed(() => {
+  const raw = logoUrl.value.trim()
+  if (!raw) return ''
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return ''
+    return u.toString()
+  }
+  catch {
+    return ''
+  }
+})
+
+const previewHtml = computed(() => {
+  const parts: string[] = []
+  const url = safeLogoUrl.value
+  if (url && !logoBroken.value) {
+    const safe = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    parts.push(
+      `<img src="${safe}" alt="" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
+    )
+  }
+  const text = signature.value.trimEnd()
+  if (text) {
+    if (parts.length) parts.push('<br><br>')
+    parts.push(
+      text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r\n|\r|\n/g, '<br>'),
+    )
+  }
+  return parts.join('')
+})
+
+watch(logoUrl, () => { logoBroken.value = false })
 
 async function loadIdentity() {
   signatureLoading.value = true
@@ -91,8 +135,11 @@ async function loadIdentity() {
     const primary = identities[0]
     identityId.value = primary?.id ?? null
     const text = primary?.textSignature ?? ''
+    const logo = primary?.logoUrl ?? ''
     signature.value = text
     signatureSaved.value = text
+    logoUrl.value = logo
+    logoUrlSaved.value = logo
   }
   catch (err: unknown) {
     signatureError.value = err instanceof Error
@@ -115,11 +162,14 @@ async function saveSignature() {
       body: {
         identityId: identityId.value,
         textSignature: signature.value,
+        logoUrl: logoUrl.value.trim(),
       },
     })
     identityId.value = identity.id
     signature.value = identity.textSignature ?? ''
     signatureSaved.value = signature.value
+    logoUrl.value = identity.logoUrl ?? ''
+    logoUrlSaved.value = logoUrl.value
     signatureOk.value = true
     setTimeout(() => { signatureOk.value = false }, 2000)
   }
@@ -256,15 +306,61 @@ onMounted(async () => {
             <div v-if="signatureLoading" class="mt-4 h-28 animate-pulse rounded-xl bg-muted" />
 
             <template v-else>
-              <textarea
-                v-model="signature"
-                rows="6"
-                maxlength="4096"
-                placeholder="Best regards,&#10;Your name"
-                class="mt-4 w-full resize-y rounded-xl border border-input bg-background px-3.5 py-3 text-sm leading-relaxed text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                :aria-invalid="signatureOverLimit"
-              />
-              <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <label class="mt-4 block text-xs font-medium text-muted-foreground">
+                Logo URL
+                <input
+                  v-model="logoUrl"
+                  type="url"
+                  inputmode="url"
+                  placeholder="https://native.co.ug/logo.png"
+                  class="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+              </label>
+              <p class="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+                Host the image publicly (https). Don’t paste base64 — Stalwart caps signatures at ~2KB.
+              </p>
+
+              <label class="mt-4 block text-xs font-medium text-muted-foreground">
+                Signature text
+                <textarea
+                  v-model="signature"
+                  rows="5"
+                  maxlength="4096"
+                  placeholder="Best regards,&#10;Your name"
+                  class="mt-1.5 w-full resize-y rounded-xl border border-input bg-background px-3.5 py-3 text-sm leading-relaxed text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  :aria-invalid="signatureOverLimit"
+                />
+              </label>
+
+              <div
+                v-if="previewHtml"
+                class="mt-4 rounded-xl border bg-muted/30 px-4 py-3"
+              >
+                <p class="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Preview
+                </p>
+                <div
+                  class="text-sm leading-relaxed text-foreground [&_img]:mb-2"
+                  v-html="previewHtml"
+                />
+              </div>
+              <p
+                v-if="logoUrl.trim() && logoBroken"
+                class="mt-2 text-xs text-destructive"
+              >
+                Couldn’t load that image URL — check it’s public https.
+              </p>
+              <!-- Hidden probe so we know if the logo URL loads -->
+              <img
+                v-if="safeLogoUrl"
+                :src="safeLogoUrl"
+                alt=""
+                class="pointer-events-none fixed size-0 opacity-0"
+                @error="logoBroken = true"
+                @load="logoBroken = false"
+              >
+
+              <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <p
                   class="text-xs tabular-nums"
                   :class="signatureOverLimit ? 'text-destructive' : 'text-muted-foreground'"

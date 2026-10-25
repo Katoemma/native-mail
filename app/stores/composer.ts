@@ -9,6 +9,8 @@ interface ComposerState {
   bcc: MailAddress[]
   subject: string
   body: string
+  /** Cached Identity htmlSignature (may include logo <img>) */
+  htmlSignature: string
   attachments: AttachmentDraft[]
   /** Reply/forward context */
   inReplyToEmailId: string | null
@@ -20,6 +22,32 @@ interface ComposerState {
   lastSavedAt: number | null
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function textToHtml(text: string): string {
+  return escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>')
+}
+
+/** Build multipart HTML so logo in htmlSignature shows for HTML clients. */
+function buildHtmlBody(textBody: string, htmlSig: string): string | undefined {
+  const sig = htmlSig.trim()
+  if (!sig) return undefined
+  const marker = '\n\n-- \n'
+  const idx = textBody.lastIndexOf(marker)
+  if (idx >= 0) {
+    const main = textBody.slice(0, idx)
+    const mainHtml = main.trim() ? `${textToHtml(main)}<br><br>` : ''
+    return `${mainHtml}-- <br>${sig}`
+  }
+  return `${textToHtml(textBody)}<br><br>-- <br>${sig}`
+}
+
 export const useComposerStore = defineStore('composer', {
   state: (): ComposerState => ({
     open: false,
@@ -29,6 +57,7 @@ export const useComposerStore = defineStore('composer', {
     bcc: [],
     subject: '',
     body: '',
+    htmlSignature: '',
     attachments: [],
     inReplyToEmailId: null,
     threadId: null,
@@ -55,22 +84,32 @@ export const useComposerStore = defineStore('composer', {
   },
 
   actions: {
-    /** Append Identity textSignature (Stalwart) if not already present. */
+    /** Append Identity textSignature; cache htmlSignature (logo) for drafts. */
     async applySignature() {
       try {
-        const { identities } = await $fetch<{ identities: { textSignature?: string }[] }>(
-          '/api/identity',
-        )
-        const sig = identities[0]?.textSignature?.trimEnd() ?? ''
-        if (!sig) return
-        // Avoid duplicating if draft already contains this signature block
-        if (this.body.includes(sig)) return
-        const block = `\n\n-- \n${sig}`
-        if (this.mode === 'forward' && this.body.startsWith('\n\n---------- Forwarded')) {
-          this.body = `${block}${this.body}`
+        const { identities } = await $fetch<{
+          identities: { textSignature?: string; htmlSignature?: string }[]
+        }>('/api/identity')
+        const primary = identities[0]
+        this.htmlSignature = primary?.htmlSignature?.trim() ?? ''
+        const sig = primary?.textSignature?.trimEnd() ?? ''
+        if (!sig && !this.htmlSignature) return
+        if (sig) {
+          if (this.body.includes(sig)) return
+          const block = `\n\n-- \n${sig}`
+          if (this.mode === 'forward' && this.body.startsWith('\n\n---------- Forwarded')) {
+            this.body = `${block}${this.body}`
+          }
+          else {
+            this.body = `${this.body}${block}`
+          }
         }
-        else {
-          this.body = `${this.body}${block}`
+        else if (this.htmlSignature && !this.body.includes('-- ')) {
+          // Logo-only signature: keep a text delimiter for plain clients
+          const block = '\n\n-- \n'
+          this.body = this.mode === 'forward' && this.body.startsWith('\n\n---------- Forwarded')
+            ? `${block}${this.body}`
+            : `${this.body}${block}`
         }
       }
       catch {
@@ -147,6 +186,7 @@ export const useComposerStore = defineStore('composer', {
           bcc:              this.bcc,
           subject:          this.subject,
           textBody:         this.body,
+          htmlBody:         buildHtmlBody(this.body, this.htmlSignature),
           attachments:      this.uploadedAttachments,
           inReplyToEmailId: this.inReplyToEmailId ?? undefined,
         }

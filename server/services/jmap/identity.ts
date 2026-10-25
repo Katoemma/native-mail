@@ -26,6 +26,7 @@ const IDENTITY_PROPS = [
 export const SIGNATURE_MAX_CHARS = 2047
 
 function mapIdentity(i: JmapIdentity): Identity {
+  const htmlSignature = i.htmlSignature ?? ''
   return {
     id: i.id,
     name: i.name,
@@ -33,7 +34,8 @@ function mapIdentity(i: JmapIdentity): Identity {
     replyTo: i.replyTo ?? null,
     bcc: i.bcc ?? null,
     textSignature: i.textSignature ?? '',
-    htmlSignature: i.htmlSignature ?? '',
+    htmlSignature,
+    logoUrl: extractLogoUrl(htmlSignature),
   }
 }
 
@@ -56,7 +58,7 @@ export async function getIdentities(
   return (args.list ?? []).map(mapIdentity)
 }
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -64,11 +66,41 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-/** Plain signature → simple HTML for Identity.htmlSignature */
-export function textToHtmlSignature(text: string): string {
+/** First <img src="..."> in stored htmlSignature (our logo). */
+export function extractLogoUrl(html: string): string {
+  if (!html) return ''
+  const m = html.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i)
+  return m?.[1]?.trim() ?? ''
+}
+
+function normalizeLogoUrl(raw: string): string {
+  const url = raw.trim()
+  if (!url) return ''
+  try {
+    const u = new URL(url)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return ''
+    return u.toString()
+  }
+  catch {
+    return ''
+  }
+}
+
+/** Build Identity htmlSignature from plain text + optional hosted logo URL. */
+export function buildHtmlSignature(text: string, logoUrl?: string | null): string {
+  const parts: string[] = []
+  const logo = normalizeLogoUrl(logoUrl ?? '')
+  if (logo) {
+    parts.push(
+      `<img src="${escapeHtml(logo)}" alt="" width="120" style="max-width:120px;height:auto;display:block;border:0;">`,
+    )
+  }
   const trimmed = text.trimEnd()
-  if (!trimmed) return ''
-  return escapeHtml(trimmed).replace(/\r\n|\r|\n/g, '<br>')
+  if (trimmed) {
+    if (parts.length) parts.push('<br><br>')
+    parts.push(escapeHtml(trimmed).replace(/\r\n|\r|\n/g, '<br>'))
+  }
+  return parts.join('')
 }
 
 export async function updateIdentitySignatures(
@@ -76,6 +108,7 @@ export async function updateIdentitySignatures(
   accountId: string,
   identityId: string,
   textSignature: string,
+  logoUrl?: string | null,
 ): Promise<Identity> {
   if (textSignature.length > SIGNATURE_MAX_CHARS) {
     throw new JmapError(
@@ -86,7 +119,15 @@ export async function updateIdentitySignatures(
     )
   }
 
-  const htmlSignature = textToHtmlSignature(textSignature)
+  const htmlSignature = buildHtmlSignature(textSignature, logoUrl)
+  if (htmlSignature.length > SIGNATURE_MAX_CHARS) {
+    throw new JmapError(
+      'invalidArguments',
+      `HTML signature is too long (${htmlSignature.length}/${SIGNATURE_MAX_CHARS}). Use a shorter logo URL or less text.`,
+      ['htmlSignature'],
+      400,
+    )
+  }
 
   const response = await client.request([
     [
