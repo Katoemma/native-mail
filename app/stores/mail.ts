@@ -182,6 +182,25 @@ export const useMailStore = defineStore('mail', {
       delete this.fullEmails[id]
     },
 
+    /** Insert id into a mailbox list sorted by receivedAt (newest first). */
+    _insertSorted(mailboxId: string, email: MailMessage) {
+      const ids = this.idsByMailbox[mailboxId] ?? []
+      if (ids.includes(email.id)) return
+      const t = email.receivedAt ? Date.parse(email.receivedAt) : 0
+      let insertAt = ids.length
+      for (let i = 0; i < ids.length; i++) {
+        const other = this.emails[ids[i]]
+        const ot = other?.receivedAt ? Date.parse(other.receivedAt) : 0
+        if (t >= ot) {
+          insertAt = i
+          break
+        }
+      }
+      const next = [...ids]
+      next.splice(insertAt, 0, email.id)
+      this.idsByMailbox[mailboxId] = next
+    },
+
     applyChanges(mailboxId: string, created: string[], _updated: string[], destroyed: string[]) {
       for (const id of destroyed) this._removeFromAllMailboxes(id)
       // Do not wipe fullEmails for updates — that blanked the open viewer after mark-read.
@@ -266,22 +285,15 @@ export const useMailStore = defineStore('mail', {
           }
         }
 
-        // Add / refresh membership in loaded mailboxes
+        // Add / refresh membership in loaded mailboxes (newest receivedAt first)
         for (const mbId of targetMailboxes) {
-          // Only touch mailboxes we've already loaded
           if (!(mbId in this.idsByMailbox)) continue
 
           const ids = this.idsByMailbox[mbId]
           const idx = ids.indexOf(email.id)
 
-          if (idx === -1 && createdSet.has(email.id)) {
-            this.idsByMailbox[mbId] = [email.id, ...ids]
-            this.totalByMailbox[mbId] = (this.totalByMailbox[mbId] ?? 0) + 1
-            this.positionByMailbox[mbId] = (this.positionByMailbox[mbId] ?? 0) + 1
-          }
-          else if (idx === -1 && updatedSet.has(email.id)) {
-            // Moved into this mailbox — place at top
-            this.idsByMailbox[mbId] = [email.id, ...ids]
+          if (idx === -1 && (createdSet.has(email.id) || updatedSet.has(email.id))) {
+            this._insertSorted(mbId, email)
             this.totalByMailbox[mbId] = (this.totalByMailbox[mbId] ?? 0) + 1
             this.positionByMailbox[mbId] = (this.positionByMailbox[mbId] ?? 0) + 1
           }
