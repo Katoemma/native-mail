@@ -487,13 +487,13 @@ const otherAttachments = computed(() =>
             <TooltipTrigger as-child>
               <button
                 class="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
-                aria-label="Not spam"
+                aria-label="Report not spam"
                 @click="notSpam"
               >
                 <ShieldCheck class="size-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Not spam — move to Inbox</TooltipContent>
+            <TooltipContent>Report not spam</TooltipContent>
           </Tooltip>
 
           <Tooltip v-else-if="junkMailboxId && !isInTrash">
@@ -598,12 +598,24 @@ const otherAttachments = computed(() =>
         <div :class="['w-full', inline ? 'px-0 py-2' : 'px-5 sm:px-8 py-6 sm:py-8']">
 
           <!-- Subject -->
-          <h1
+          <div
             v-if="!inline"
-            class="text-[1.35rem] sm:text-2xl font-semibold tracking-tight text-foreground leading-snug mb-5 text-balance"
+            class="flex items-start gap-3 mb-5"
           >
-            {{ email.subject || '(no subject)' }}
-          </h1>
+            <h1 class="flex-1 min-w-0 text-[1.35rem] sm:text-2xl font-semibold tracking-tight text-foreground leading-snug text-balance">
+              {{ email.subject || '(no subject)' }}
+            </h1>
+            <button
+              v-if="isInJunk"
+              type="button"
+              class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 h-8 text-xs font-medium text-foreground
+                     hover:bg-muted transition-colors duration-150 active:scale-[0.97] mt-0.5"
+              @click="notSpam"
+            >
+              <ShieldCheck class="size-3.5 shrink-0 text-muted-foreground" />
+              Report not spam
+            </button>
+          </div>
 
           <!-- Sender row -->
           <div class="flex items-start gap-3 mb-5">
