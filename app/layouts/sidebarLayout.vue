@@ -37,41 +37,21 @@ const sessionStore = useSessionStore()
 const composer = useComposerStore()
 const route = useRoute()
 
-const {
-  status: pushStatus,
-  busy: pushBusy,
-  error: pushError,
-  iosNeedsInstall,
-  toggle: togglePush,
-} = useWebPush()
-
-const pushLabel = computed(() => {
-  if (pushBusy.value) return 'Updating…'
-  switch (pushStatus.value) {
-    case 'enabled': return 'Notifications · On'
-    case 'denied': return 'Notifications · Blocked'
-    case 'unsupported':
-      return iosNeedsInstall.value ? 'Notifications · Install app' : 'Notifications · N/A'
-    default: return 'Notifications · Off'
-  }
-})
-
-async function onNotificationsClick(e: Event) {
-  e.preventDefault()
-  if (pushBusy.value || pushStatus.value === 'denied' || pushStatus.value === 'unsupported') return
-  await togglePush()
-}
+const { ensureEnabled } = useWebPush()
 
 const { setupFocusSync } = useSync()
 onMounted(async () => {
   await mailboxesStore.fetch()
   setupFocusSync()
+  // Notifications default ON after login (skips if user opted out)
+  void ensureEnabled()
 })
 
 // Debounced search lives here so mobile header + desktop sidebar share one watcher
 const { query: searchQuery, searchNow } = useDebouncedMailSearch(350)
 
 const mailboxLabel = computed(() => {
+  if (route.path === '/profile') return 'Profile'
   if (route.path === '/mail/search') return 'Search'
   const slug = (route.params.mailbox as string | undefined) ?? ''
   if (!slug) return 'Inbox'
@@ -183,24 +163,14 @@ function openCompose() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem>
+                <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile')">
                   <BadgeCheck class="size-4" />
                   Account
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  class="cursor-pointer"
-                  :disabled="pushBusy || pushStatus === 'denied' || pushStatus === 'unsupported'"
-                  @click="onNotificationsClick"
-                >
+                <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile#notifications')">
                   <Bell class="size-4" />
-                  <span class="flex-1">{{ pushLabel }}</span>
+                  Notifications
                 </DropdownMenuItem>
-                <p
-                  v-if="pushError || iosNeedsInstall"
-                  class="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground"
-                >
-                  {{ pushError || 'Add Native Mail to your Home Screen to enable push on iOS.' }}
-                </p>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem

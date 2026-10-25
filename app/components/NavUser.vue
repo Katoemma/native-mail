@@ -36,30 +36,6 @@ const props = defineProps<{
 
 const { isMobile } = useSidebar()
 const sessionStore = useSessionStore()
-const {
-  status: pushStatus,
-  busy: pushBusy,
-  error: pushError,
-  iosNeedsInstall,
-  toggle: togglePush,
-} = useWebPush()
-
-const pushLabel = computed(() => {
-  if (pushBusy.value) return 'Updating…'
-  switch (pushStatus.value) {
-    case 'enabled': return 'Notifications · On'
-    case 'denied': return 'Notifications · Blocked'
-    case 'unsupported':
-      return iosNeedsInstall.value ? 'Notifications · Install app' : 'Notifications · N/A'
-    default: return 'Notifications · Off'
-  }
-})
-
-async function onNotificationsClick(e: Event) {
-  e.preventDefault()
-  if (pushBusy.value || pushStatus.value === 'denied' || pushStatus.value === 'unsupported') return
-  await togglePush()
-}
 
 // Initials for avatar fallback — never empty (blank AvatarFallback looks broken)
 const initials = computed(() => {
@@ -99,7 +75,6 @@ const initials = computed(() => {
           align="end"
           :side-offset="4"
         >
-          <!-- User identity -->
           <DropdownMenuLabel class="p-0 font-normal">
             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
               <Avatar class="h-8 w-8 rounded-lg">
@@ -116,29 +91,18 @@ const initials = computed(() => {
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
-            <DropdownMenuItem>
+            <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile')">
               <BadgeCheck class="size-4" />
               Account
             </DropdownMenuItem>
-            <DropdownMenuItem
-              class="cursor-pointer"
-              :disabled="pushBusy || pushStatus === 'denied' || pushStatus === 'unsupported'"
-              @click="onNotificationsClick"
-            >
+            <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile#notifications')">
               <Bell class="size-4" />
-              <span class="flex-1">{{ pushLabel }}</span>
+              Notifications
             </DropdownMenuItem>
-            <p
-              v-if="pushError || iosNeedsInstall"
-              class="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground"
-            >
-              {{ pushError || 'Add Native Mail to your Home Screen to enable push on iOS.' }}
-            </p>
           </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
 
-          <!-- Logout — calls sessionStore.logout() which clears cookie + redirects -->
           <DropdownMenuItem
             class="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
             @click="sessionStore.logout()"

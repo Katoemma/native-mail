@@ -1,12 +1,13 @@
 /**
  * Browser Web Push ↔ Stalwart JMAP PushSubscription.
  *
- * Stalwart owns the VAPID key; we subscribe with PushManager, register the
- * endpoint via the BFF, and the service worker completes PushVerification.
+ * Notifications default ON: we auto-enable after login unless the user
+ * explicitly opted out on the profile page.
  */
 
 const DEVICE_KEY = 'nm_push_device_client_id'
 const SUB_ID_KEY = 'nm_jmap_push_subscription_id'
+const OPT_OUT_KEY = 'nm_push_opt_out'
 
 export type WebPushStatus = 'unsupported' | 'denied' | 'default' | 'enabled' | 'disabled'
 
@@ -40,6 +41,17 @@ function setStoredSubId(id: string | null) {
   else localStorage.removeItem(SUB_ID_KEY)
 }
 
+function isOptedOut(): boolean {
+  if (!import.meta.client) return false
+  return localStorage.getItem(OPT_OUT_KEY) === '1'
+}
+
+function setOptedOut(optedOut: boolean) {
+  if (!import.meta.client) return
+  if (optedOut) localStorage.setItem(OPT_OUT_KEY, '1')
+  else localStorage.removeItem(OPT_OUT_KEY)
+}
+
 /** Best-effort: destroy JMAP + browser push subscription (safe outside setup). */
 export async function teardownWebPush(): Promise<void> {
   if (!import.meta.client) return
@@ -63,6 +75,9 @@ export function useWebPush() {
   const busy = ref(false)
   const error = ref<string | null>(null)
   const iosNeedsInstall = ref(false)
+  const optedOut = ref(false)
+
+  const enabled = computed(() => status.value === 'enabled')
 
   function detectSupport() {
     if (!import.meta.client) return false
@@ -83,8 +98,9 @@ export function useWebPush() {
       status.value = 'unsupported'
       return
     }
+    optedOut.value = isOptedOut()
     if (!detectSupport()) {
-      status.value = iosNeedsInstall.value ? 'unsupported' : 'unsupported'
+      status.value = 'unsupported'
       return
     }
     const perm = Notification.permission
@@ -141,7 +157,6 @@ export function useWebPush() {
         throw new Error('Push subscription missing endpoint or keys')
       }
 
-      // Replace any previous JMAP subscription for this browser
       const prev = storedSubId()
       if (prev) {
         await $fetch('/api/push/subscribe', {
@@ -163,6 +178,8 @@ export function useWebPush() {
       })
 
       setStoredSubId(id)
+      setOptedOut(false)
+      optedOut.value = false
       status.value = 'enabled'
       return true
     }
@@ -194,6 +211,8 @@ export function useWebPush() {
         }).catch(() => {})
       }
       setStoredSubId(null)
+      setOptedOut(true)
+      optedOut.value = true
 
       if ('serviceWorker' in navigator) {
         const reg = await navigator.serviceWorker.ready.catch(() => null)
@@ -212,19 +231,35 @@ export function useWebPush() {
     else await enable()
   }
 
+  /**
+   * Turn notifications on unless the user opted out, permission is denied,
+   * or the environment can't push. Safe to call on every app boot.
+   */
+  async function ensureEnabled(): Promise<boolean> {
+    if (!import.meta.client) return false
+    refreshStatus()
+    if (isOptedOut()) return false
+    if (status.value === 'enabled') return true
+    if (status.value === 'denied' || status.value === 'unsupported') return false
+    return enable()
+  }
+
   onMounted(() => {
     refreshStatus()
   })
 
   return {
     status,
+    enabled,
     busy,
     error,
     iosNeedsInstall,
+    optedOut,
     refreshStatus,
     enable,
     disable,
     toggle,
+    ensureEnabled,
     teardownOnLogout: teardownWebPush,
   }
 }
