@@ -4,7 +4,7 @@ definePageMeta({
   middleware: ['auth'],
 })
 
-import { Bell, BellOff, PenLine, ShieldAlert, Smartphone } from '@lucide/vue'
+import { Bell, BellOff, LayoutList, PanelsTopLeft, PenLine, ShieldAlert, Smartphone } from '@lucide/vue'
 import {
   Avatar,
   AvatarFallback,
@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import type { Identity } from '../../shared/types'
+import type { MailLayoutMode } from '~/composables/useMailLayout'
 
 const SIGNATURE_MAX = 2047
 
@@ -29,6 +30,12 @@ const defaultLogoAbsolute = computed(() => {
 })
 
 const sessionStore = useSessionStore()
+const { mode: mailLayoutMode, setMode: setMailLayout } = useMailLayout()
+
+function onLayoutPick(next: MailLayoutMode) {
+  setMailLayout(next)
+}
+
 const {
   status,
   enabled,
@@ -226,6 +233,61 @@ onMounted(async () => {
           <p class="mt-3 text-sm text-muted-foreground">
             Manage how Native Mail reaches you.
           </p>
+        </div>
+      </section>
+
+      <!-- Display / layout -->
+      <section
+        id="display"
+        class="mb-6 scroll-mt-24 rounded-2xl border p-5 sm:p-6"
+      >
+        <div class="flex items-start gap-4">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <LayoutList class="size-5" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-base font-semibold tracking-tight">
+              Mail layout
+            </h2>
+            <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Switch anytime — classic split pane stays available. See
+              <code class="text-[11px]">docs/MAIL-LAYOUT.md</code>.
+            </p>
+            <div class="mt-4 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                class="flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors"
+                :class="mailLayoutMode === 'list'
+                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                  : 'border-border hover:bg-muted/40'"
+                @click="onLayoutPick('list')"
+              >
+                <LayoutList class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span>
+                  <span class="block text-sm font-medium">List</span>
+                  <span class="mt-0.5 block text-xs text-muted-foreground">
+                    Full-width inbox; open a message to read (Gmail-style).
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors"
+                :class="mailLayoutMode === 'split'
+                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                  : 'border-border hover:bg-muted/40'"
+                @click="onLayoutPick('split')"
+              >
+                <PanelsTopLeft class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span>
+                  <span class="block text-sm font-medium">Split</span>
+                  <span class="mt-0.5 block text-xs text-muted-foreground">
+                    Classic list beside the reading pane.
+                  </span>
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

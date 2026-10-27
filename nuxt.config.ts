@@ -99,6 +99,12 @@ export default defineNuxtConfig({
       appName: 'Native Mail',
       /** Default signature logo (served from /public); override with full https URL if needed */
       defaultSignatureLogo: process.env.NUXT_PUBLIC_DEFAULT_SIGNATURE_LOGO || '/native-logo.png',
+      /**
+       * Desktop mail chrome default for new sessions.
+       * list = Gmail-style full-width list; split = classic list + reading pane.
+       * Users can override in Profile (stored in localStorage). See docs/MAIL-LAYOUT.md
+       */
+      mailLayout: process.env.NUXT_PUBLIC_MAIL_LAYOUT || 'list',
     },
   },
 

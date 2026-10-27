@@ -25,6 +25,7 @@ const threadStore    = useThreadStore()
 const composer       = useComposerStore()
 const route          = useRoute()
 const router         = useRouter()
+const { isList, isSplit } = useMailLayout()
 
 const {
   selected: selectedIds,
@@ -38,6 +39,18 @@ const {
 
 const mailboxSlug = computed(() => route.params.mailbox as string)
 const selectedId  = computed(() => (route.query.id as string) ?? null)
+
+/** Full-width list visible (list mode, or mobile split when nothing selected). */
+const showListPane = computed(() => {
+  if (isList.value) return !selectedId.value
+  return !selectedId.value
+})
+
+/** Reading pane: list mode only when a message is open; split mode always on md+. */
+const showReaderPane = computed(() => {
+  if (isList.value) return !!selectedId.value
+  return true
+})
 
 const mailboxId = computed(() =>
   mailboxesStore.list.find(m => m.role === mailboxSlug.value || m.id === mailboxSlug.value)?.id ?? null,
@@ -145,9 +158,13 @@ function handleForward(id: string) {
 
 <template>
   <div class="flex flex-1 overflow-hidden h-full w-full">
+    <!-- Message list: full-width in list mode; mobile-only in split mode -->
     <div
-      v-if="!selectedId"
-      class="flex flex-col w-full h-full md:hidden"
+      v-if="showListPane"
+      :class="[
+        'flex flex-col w-full h-full',
+        isSplit ? 'md:hidden' : 'flex',
+      ]"
     >
       <div class="flex items-center gap-3 px-4 py-3 border-b shrink-0">
         <template v-if="hasSelection">
@@ -245,10 +262,14 @@ function handleForward(id: string) {
       </div>
     </div>
 
+    <!-- Reading pane -->
     <div
+      v-if="showReaderPane"
       :class="[
         'flex flex-col flex-1 overflow-hidden h-full',
-        selectedId ? 'flex' : 'hidden md:flex',
+        isList
+          ? 'flex'
+          : (selectedId ? 'flex' : 'hidden md:flex'),
       ]"
     >
       <MailThread
@@ -270,7 +291,7 @@ function handleForward(id: string) {
       />
 
       <div
-        v-else
+        v-else-if="isSplit"
         class="flex flex-1 flex-col items-center justify-center h-full gap-3 text-muted-foreground select-none"
       >
         <p class="text-sm font-medium">Select a message to read</p>

@@ -38,6 +38,10 @@ const composer = useComposerStore()
 const route = useRoute()
 
 const { ensureEnabled } = useWebPush()
+const { isList } = useMailLayout()
+
+/** Split mode needs room for the mail-list panel; list mode is icon rail only. */
+const sidebarWidth = computed(() => (isList.value ? '3.5rem' : '350px'))
 
 const { setupFocusSync } = useSync()
 onMounted(async () => {
@@ -88,7 +92,7 @@ function openCompose() {
 <template>
   <SidebarProvider
     :style="{
-      '--sidebar-width': '350px',
+      '--sidebar-width': sidebarWidth,
     }"
   >
     <AppSidebar />
@@ -101,8 +105,11 @@ function openCompose() {
           class="mr-1 hidden data-[orientation=vertical]:h-4 md:mr-2 md:block"
         />
 
-        <!-- Desktop breadcrumb -->
-        <Breadcrumb class="hidden min-w-0 flex-1 md:block">
+        <!-- Desktop breadcrumb — split mode (list lives in the sidebar panel) -->
+        <Breadcrumb
+          v-if="!isList"
+          class="hidden min-w-0 flex-1 md:block"
+        >
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink href="/mail/inbox">
@@ -116,8 +123,12 @@ function openCompose() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <!-- Mobile: search on the same row as trigger + avatar -->
-        <form class="min-w-0 flex-1 md:hidden" @submit.prevent="searchNow">
+        <!-- Search: always on mobile; also on desktop in list mode (no sidebar list panel) -->
+        <form
+          class="min-w-0 flex-1"
+          :class="isList ? '' : 'md:hidden'"
+          @submit.prevent="searchNow"
+        >
           <Input
             v-model="searchQuery"
             type="search"

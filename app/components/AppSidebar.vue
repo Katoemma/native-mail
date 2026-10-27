@@ -57,6 +57,7 @@ const router         = useRouter()
 const route          = useRoute()
 
 const { setOpen, setOpenMobile, isMobile } = useSidebar()
+const { isSplit, isList } = useMailLayout()
 
 function closeMobileSidebar() {
   if (isMobile.value) setOpenMobile(false)
@@ -66,6 +67,12 @@ function closeMobileSidebar() {
 watch(() => route.fullPath, () => {
   closeMobileSidebar()
 })
+
+// List mode: keep desktop chrome on the icon rail (no expanded list panel)
+watch(isList, (list) => {
+  if (!import.meta.client || isMobile.value) return
+  if (list) setOpen(false)
+}, { immediate: true })
 
 // ── Nav items — roles map to routes ──────────────────────────────────────────
 const navItems = [
@@ -100,7 +107,9 @@ const panelLoading = computed(() => mailStore.loadingList)
 function navTo(role: string, url: string) {
   // Close the mobile drawer immediately — don't wait for fetch/navigation
   closeMobileSidebar()
-  if (!isMobile.value) setOpen(true)
+  // Split mode: keep the mail-list panel open. List mode: icon rail only.
+  if (!isMobile.value && isSplit.value) setOpen(true)
+  if (!isMobile.value && isList.value) setOpen(false)
 
   void router.push(url)
 
@@ -363,8 +372,12 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
       </SidebarFooter>
     </Sidebar>
 
-    <!-- ── Second sidebar: mail list panel ──────────────────────────────── -->
-    <Sidebar collapsible="none" class="hidden min-w-0 flex-1 md:flex">
+    <!-- ── Second sidebar: mail list panel (split / classic layout only) ─ -->
+    <Sidebar
+      v-if="isSplit"
+      collapsible="none"
+      class="hidden min-w-0 flex-1 md:flex"
+    >
       <SidebarHeader class="gap-3.5 border-b p-4">
         <div class="flex w-full items-center justify-between gap-2">
           <div class="min-w-0">
