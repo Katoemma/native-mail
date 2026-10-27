@@ -56,8 +56,11 @@ const composer       = useComposerStore()
 const router         = useRouter()
 const route          = useRoute()
 
-const { setOpen, setOpenMobile, isMobile } = useSidebar()
+const { setOpen, setOpenMobile, isMobile, open: sidebarOpen } = useSidebar()
 const { isSplit, isList } = useMailLayout()
+
+/** Desktop list mode: when expanded, show folder labels (not just icons). */
+const showNavLabels = computed(() => isMobile.value || (isList.value && sidebarOpen.value))
 
 function closeMobileSidebar() {
   if (isMobile.value) setOpenMobile(false)
@@ -67,12 +70,6 @@ function closeMobileSidebar() {
 watch(() => route.fullPath, () => {
   closeMobileSidebar()
 })
-
-// List mode: keep desktop chrome on the icon rail (no expanded list panel)
-watch(isList, (list) => {
-  if (!import.meta.client || isMobile.value) return
-  if (list) setOpen(false)
-}, { immediate: true })
 
 // ── Nav items — roles map to routes ──────────────────────────────────────────
 const navItems = [
@@ -107,9 +104,8 @@ const panelLoading = computed(() => mailStore.loadingList)
 function navTo(role: string, url: string) {
   // Close the mobile drawer immediately — don't wait for fetch/navigation
   closeMobileSidebar()
-  // Split mode: keep the mail-list panel open. List mode: icon rail only.
+  // Split mode: keep the mail-list panel open after folder change
   if (!isMobile.value && isSplit.value) setOpen(true)
-  if (!isMobile.value && isList.value) setOpen(false)
 
   void router.push(url)
 
@@ -262,15 +258,21 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
     class="overflow-hidden *:data-[sidebar=sidebar]:flex-row"
     v-bind="props"
   >
-    <!-- ── First sidebar: full nav on mobile, icon rail on desktop ──────── -->
+    <!-- ── First sidebar: labeled when open (list mode) / icon rail when collapsed ─ -->
     <Sidebar
       collapsible="none"
-      class="w-full border-r md:w-[calc(var(--sidebar-width-icon)+1px)]!"
+      :class="[
+        'w-full border-r',
+        isList
+          ? 'md:w-full'
+          : 'md:w-[calc(var(--sidebar-width-icon)+1px)]!',
+      ]"
     >
-      <SidebarHeader class="gap-2 px-3 md:px-2">
+      <SidebarHeader :class="['gap-2', showNavLabels ? 'px-3' : 'px-3 md:px-2']">
         <NuxtLink
+          v-if="showNavLabels"
           to="/mail/inbox"
-          class="block px-1 py-1 md:hidden"
+          class="block px-1 py-1"
           aria-label="Native Mail"
           @click="closeMobileSidebar()"
         >
@@ -288,12 +290,19 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
             <TooltipProvider :delay-duration="200">
               <Tooltip>
                 <TooltipTrigger as-child>
-                  <SidebarMenuButton size="lg" as-child class="md:h-8 md:p-0">
+                  <SidebarMenuButton
+                    size="lg"
+                    as-child
+                    :class="showNavLabels ? 'h-11' : 'md:h-8 md:p-0'"
+                  >
                     <button type="button" @click="openCompose()">
                       <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shrink-0">
                         <SquarePen class="size-4" :stroke-width="1.75" />
                       </div>
-                      <div class="grid min-w-0 flex-1 text-left text-sm leading-tight md:hidden">
+                      <div
+                        v-if="showNavLabels"
+                        class="grid min-w-0 flex-1 text-left text-sm leading-tight"
+                      >
                         <span class="truncate font-semibold tracking-tight">Compose</span>
                         <span class="truncate text-xs text-muted-foreground">New message</span>
                       </div>
@@ -303,7 +312,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                 <TooltipContent
                   side="right"
                   align="center"
-                  :hidden="isMobile"
+                  :hidden="showNavLabels"
                 >
                   Compose
                 </TooltipContent>
@@ -314,7 +323,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup class="px-2 md:px-0">
+        <SidebarGroup :class="showNavLabels ? 'px-2' : 'px-2 md:px-0'">
           <SidebarGroupContent>
             <TooltipProvider :delay-duration="200">
               <SidebarMenu class="gap-1">
@@ -323,7 +332,12 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                     <TooltipTrigger as-child>
                       <SidebarMenuButton
                         :is-active="activeRole === item.role"
-                        class="relative h-11 gap-3 px-3 md:h-8 md:justify-center md:gap-2 md:px-2"
+                        :class="[
+                          'relative h-11 gap-3 px-3',
+                          showNavLabels
+                            ? ''
+                            : 'md:h-8 md:justify-center md:gap-2 md:px-2',
+                        ]"
                         @click="navTo(item.role!, item.url)"
                       >
                         <component
@@ -331,13 +345,22 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                           class="size-[18px] shrink-0"
                           :stroke-width="1.75"
                         />
-                        <!-- Labels: visible in mobile drawer, icon-only on desktop -->
-                        <span class="truncate text-[0.9375rem] font-medium tracking-tight md:sr-only">
+                        <span
+                          :class="[
+                            'truncate text-[0.9375rem] font-medium tracking-tight',
+                            showNavLabels ? '' : 'md:sr-only',
+                          ]"
+                        >
                           {{ item.title }}
                         </span>
                         <span
                           v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
-                          class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold tabular-nums text-primary-foreground md:absolute md:top-1 md:right-1 md:ml-0 md:size-4 md:min-w-0 md:px-0"
+                          :class="[
+                            'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold tabular-nums text-primary-foreground',
+                            showNavLabels
+                              ? ''
+                              : 'md:absolute md:top-1 md:right-1 md:ml-0 md:size-4 md:min-w-0 md:px-0',
+                          ]"
                         >
                           {{ mailboxesStore.byRole(item.role!)!.unreadEmails! > 9
                             ? '9+'
@@ -348,7 +371,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                     <TooltipContent
                       side="right"
                       align="center"
-                      :hidden="isMobile"
+                      :hidden="showNavLabels"
                     >
                       {{ item.title }}
                       <span

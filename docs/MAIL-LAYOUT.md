@@ -6,7 +6,7 @@ Native Mail supports two desktop reading layouts. Both share the same stores, ro
 
 | Mode | Key | Behavior |
 |------|-----|----------|
-| **List** (default) | `list` | Gmail-style: full-width message list; click opens a full reading view with Back. Folder rail stays icon-only. |
+| **List** (default) | `list` | Gmail-style: full-width message list; click opens a full reading view with Back. Header toggle expands the folder rail with labels. |
 | **Split** (legacy) | `split` | Existing layout: folder rail + sidebar message list + reading pane on the right (“Select a message to read”). |
 
 Mobile is unchanged in spirit: list → open message. List mode makes desktop match that flow.

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import type { HTMLAttributes, Ref } from "vue"
+import type { CSSProperties, HTMLAttributes, Ref } from "vue"
 import { defaultDocument, useEventListener, useMediaQuery, useVModel } from "@vueuse/core"
 import { TooltipProvider } from "reka-ui"
-import { computed, ref } from "vue"
+import { computed, ref, useAttrs } from "vue"
 import { cn } from "@/lib/utils"
 import { provideSidebarContext, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_KEYBOARD_SHORTCUT, SIDEBAR_WIDTH, SIDEBAR_WIDTH_ICON } from "./utils"
+
+defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(defineProps<{
   defaultOpen?: boolean
@@ -18,6 +20,25 @@ const props = withDefaults(defineProps<{
 const emits = defineEmits<{
   "update:open": [open: boolean]
 }>()
+
+const attrs = useAttrs()
+
+const wrapperStyle = computed(() => {
+  const base: CSSProperties = {
+    '--sidebar-width': SIDEBAR_WIDTH,
+    '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
+  } as CSSProperties
+  const fromParent = attrs.style
+  if (fromParent && typeof fromParent === 'object' && !Array.isArray(fromParent)) {
+    return { ...base, ...(fromParent as CSSProperties) }
+  }
+  return base
+})
+
+const wrapperAttrs = computed(() => {
+  const { style: _style, class: _class, ...rest } = attrs as Record<string, unknown>
+  return rest
+})
 
 const isMobile = useMediaQuery("(max-width: 768px)")
 const openMobile = ref(false)
@@ -69,12 +90,9 @@ provideSidebarContext({
   <TooltipProvider :delay-duration="0">
     <div
       data-slot="sidebar-wrapper"
-      :style="{
-        '--sidebar-width': SIDEBAR_WIDTH,
-        '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
-      }"
+      :style="wrapperStyle"
       :class="cn('group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full', props.class)"
-      v-bind="$attrs"
+      v-bind="wrapperAttrs"
     >
       <slot />
     </div>

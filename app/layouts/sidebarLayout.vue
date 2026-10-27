@@ -40,8 +40,12 @@ const route = useRoute()
 const { ensureEnabled } = useWebPush()
 const { isList } = useMailLayout()
 
-/** Split mode needs room for the mail-list panel; list mode is icon rail only. */
-const sidebarWidth = computed(() => (isList.value ? '3.5rem' : '350px'))
+/**
+ * Expanded sidebar width:
+ * - list → labeled folder nav (Gmail-style; collapses to icon rail)
+ * - split → icon rail + message list panel
+ */
+const sidebarWidth = computed(() => (isList.value ? '16rem' : '350px'))
 
 const { setupFocusSync } = useSync()
 onMounted(async () => {
