@@ -9,11 +9,12 @@ import MailThread from '@/components/mail/MailThread.vue'
 import MailListItem from '@/components/mail/MailListItem.vue'
 import { Search } from '@lucide/vue'
 
-const mailStore   = useMailStore()
-const threadStore = useThreadStore()
-const composer    = useComposerStore()
-const route       = useRoute()
-const router      = useRouter()
+const mailStore      = useMailStore()
+const mailboxesStore = useMailboxesStore()
+const threadStore    = useThreadStore()
+const composer       = useComposerStore()
+const route          = useRoute()
+const router         = useRouter()
 const { isList, isSplit } = useMailLayout()
 const { results, total, loading, error } = useSearch()
 // Ensure debounce wiring even if layout mounts after this page
@@ -33,6 +34,11 @@ const showReaderPane = computed(() => {
 
 function selectEmail(id: string) {
   router.push({ path: '/mail/search', query: { q: q.value, id } })
+}
+
+async function onRowArchive(id: string) {
+  const archiveId = mailboxesStore.byRole('archive')?.id
+  if (archiveId) await mailStore.move(id, archiveId)
 }
 
 const selectedEmail = computed(() =>
@@ -118,8 +124,12 @@ function handleForward(id: string) {
           :key="email.id"
           :email="email"
           :active="false"
+          show-actions
           @click="selectEmail"
           @star="(id, val) => mailStore.markStarred(id, val)"
+          @trash="(id) => mailStore.trash(id)"
+          @archive="onRowArchive"
+          @mark-read="(id, read) => mailStore.markRead(id, read)"
         />
       </div>
     </div>

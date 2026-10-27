@@ -124,6 +124,20 @@ async function runBulkRestore() {
   }
 }
 
+async function onRowTrash(id: string) {
+  if (isTrashFolder.value) await mailStore.destroy(id)
+  else await mailStore.trash(id)
+}
+
+async function onRowArchive(id: string) {
+  const archiveId = mailboxesStore.byRole('archive')?.id
+  if (archiveId) await mailStore.move(id, archiveId)
+}
+
+function onRowMarkRead(id: string, read: boolean) {
+  void mailStore.markRead(id, read)
+}
+
 const selectedEmail = computed(() =>
   selectedId.value ? (mailStore.emails[selectedId.value] ?? null) : null,
 )
@@ -230,13 +244,16 @@ function handleForward(id: string) {
       </div>
 
       <div v-if="mobileLoading && !mobileEmails.length" class="flex-1 overflow-y-auto">
-        <div v-for="i in 6" :key="i" class="flex flex-col gap-2 border-b px-4 py-3">
-          <div class="flex gap-2">
-            <div class="h-3 w-28 rounded bg-muted animate-pulse" />
-            <div class="ml-auto h-3 w-10 rounded bg-muted animate-pulse" />
-          </div>
-          <div class="h-3 w-44 rounded bg-muted animate-pulse" />
-          <div class="h-3 w-56 rounded bg-muted animate-pulse" />
+        <div
+          v-for="i in 8"
+          :key="i"
+          class="flex h-10 items-center gap-2 border-b px-3"
+        >
+          <div class="size-4 rounded border border-muted animate-pulse" />
+          <div class="size-4 rounded bg-muted animate-pulse" />
+          <div class="hidden h-3 w-36 rounded bg-muted animate-pulse sm:block" />
+          <div class="h-3 flex-1 rounded bg-muted animate-pulse" />
+          <div class="h-3 w-12 rounded bg-muted animate-pulse" />
         </div>
       </div>
 
@@ -254,10 +271,14 @@ function handleForward(id: string) {
           :email="email"
           :active="false"
           selectable
+          show-actions
           :selected="isSelected(email.id)"
           @click="selectEmail"
           @toggle-select="toggleSelect"
           @star="(id, val) => mailStore.markStarred(id, val)"
+          @trash="onRowTrash"
+          @archive="onRowArchive"
+          @mark-read="onRowMarkRead"
         />
       </div>
     </div>

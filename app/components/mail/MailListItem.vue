@@ -1,19 +1,23 @@
 <script setup lang="ts">
-import { Paperclip, Star, Check } from '@lucide/vue'
+import { Archive, Check, Mail, MailOpen, Paperclip, Star, Trash2 } from '@lucide/vue'
 import type { MailMessage } from '../../../shared/types'
-import { avatarStyle, senderInitials } from '~/utils/avatar'
 
 const props = defineProps<{
   email: MailMessage
   active?: boolean
   selectable?: boolean
   selected?: boolean
+  /** Show hover quick actions (list / Gmail style) */
+  showActions?: boolean
 }>()
 
 const emit = defineEmits<{
   click: [id: string]
   star: [id: string, val: boolean]
   toggleSelect: [id: string]
+  trash: [id: string]
+  archive: [id: string]
+  markRead: [id: string, read: boolean]
 }>()
 
 function formatDate(iso: string | null): string {
@@ -22,7 +26,7 @@ function formatDate(iso: string | null): string {
   const now = new Date()
   const diff = now.getTime() - d.getTime()
   if (diff < 86_400_000 && d.getDate() === now.getDate()) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   }
   if (diff < 7 * 86_400_000) {
     return d.toLocaleDateString([], { weekday: 'short' })
@@ -32,107 +36,140 @@ function formatDate(iso: string | null): string {
 
 const from = computed(() => props.email.from[0])
 const senderName = computed(() => from.value?.name || from.value?.email || '(unknown)')
-const initials = computed(() => senderInitials(from.value?.name, from.value?.email))
-const avatar = computed(() => avatarStyle(from.value?.email || senderName.value))
 </script>
 
 <template>
   <div
     :class="[
-      'relative w-full min-w-0 overflow-hidden text-left flex gap-3 px-4 py-3 border-b transition-colors cursor-pointer',
+      'group/row relative flex w-full min-w-0 cursor-pointer items-center gap-1 border-b px-2 text-left transition-colors sm:gap-1.5 sm:px-3',
+      'h-11 sm:h-10',
       active
         ? 'bg-accent text-accent-foreground'
-        : 'hover:bg-muted/50',
-      !email.isRead && !active && 'bg-primary/[0.04]',
-      selected && 'bg-primary/8',
+        : email.isRead
+          ? 'bg-muted/25 hover:bg-muted/50'
+          : 'bg-background hover:bg-muted/40',
+      selected && 'bg-primary/8 hover:bg-primary/10',
     ]"
     role="button"
     tabindex="0"
     @click="emit('click', email.id)"
     @keydown.enter.prevent="emit('click', email.id)"
   >
-    <span
-      v-if="!email.isRead"
-      class="absolute inset-y-0 left-0 w-0.5 bg-primary"
-    />
-
-    <!-- Selection checkbox -->
+    <!-- Checkbox -->
     <button
       v-if="selectable"
       type="button"
-      class="mt-1.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
+      class="flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
       :class="selected
         ? 'border-primary bg-primary text-primary-foreground'
-        : 'border-muted-foreground/40 bg-background hover:border-primary'"
+        : 'border-muted-foreground/35 bg-transparent hover:border-foreground/50'"
       :aria-label="selected ? 'Deselect' : 'Select'"
       :aria-pressed="selected"
       @click.stop="emit('toggleSelect', email.id)"
     >
-      <Check v-if="selected" class="size-3.5" :stroke-width="2.5" />
+      <Check v-if="selected" class="size-3" :stroke-width="2.5" />
+    </button>
+    <span v-else class="size-5 shrink-0" aria-hidden="true" />
+
+    <!-- Star -->
+    <button
+      type="button"
+      class="flex size-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
+      :aria-label="email.isStarred ? 'Unstar' : 'Star'"
+      @click.stop="emit('star', email.id, !email.isStarred)"
+    >
+      <Star
+        :class="[
+          'size-4',
+          email.isStarred
+            ? 'fill-amber-400 text-amber-400'
+            : 'text-muted-foreground/50 group-hover/row:text-muted-foreground',
+        ]"
+      />
     </button>
 
-    <!-- Avatar -->
-    <div
-      class="size-10 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold select-none ring-1 ring-black/5"
-      :style="avatar"
-      aria-hidden="true"
+    <!-- Sender -->
+    <span
+      :class="[
+        'hidden w-[7.5rem] shrink-0 truncate text-[13px] sm:block sm:w-40 md:w-44',
+        email.isRead ? 'font-normal text-foreground/80' : 'font-bold text-foreground',
+      ]"
     >
-      {{ initials }}
-    </div>
+      {{ senderName }}
+    </span>
 
-    <div class="min-w-0 flex-1 flex flex-col gap-0.5">
-      <div class="flex min-w-0 items-center gap-2">
-        <span
-          v-if="!email.isRead"
-          class="size-1.5 rounded-full bg-primary shrink-0"
-        />
-        <span
-          :class="[
-            'min-w-0 flex-1 text-sm truncate',
-            email.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
-          ]"
-        >
-          {{ senderName }}
-        </span>
-
-        <button
-          class="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
-          :aria-label="email.isStarred ? 'Unstar' : 'Star'"
-          @click.stop="emit('star', email.id, !email.isStarred)"
-        >
-          <Star
-            :class="['size-3.5', email.isStarred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground']"
-          />
-        </button>
-
-        <span
-          :class="[
-            'text-xs shrink-0 tabular-nums',
-            email.isRead ? 'text-muted-foreground' : 'text-foreground/70 font-medium',
-          ]"
-        >
-          {{ formatDate(email.receivedAt) }}
-        </span>
-      </div>
-
-      <div
+    <!-- Subject — preview (Gmail inline) -->
+    <div class="flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden text-[13px] leading-snug">
+      <!-- Mobile: sender above isn't shown; prefix name -->
+      <span
         :class="[
-          'min-w-0 text-sm truncate',
-          email.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground',
+          'truncate sm:hidden',
+          email.isRead ? 'font-normal text-foreground/80' : 'font-bold text-foreground',
+        ]"
+      >
+        {{ senderName }}
+      </span>
+      <span
+        :class="[
+          'max-w-[40%] shrink-0 truncate sm:max-w-none sm:shrink',
+          email.isRead ? 'font-normal text-foreground/90' : 'font-bold text-foreground',
         ]"
       >
         {{ email.subject || '(no subject)' }}
-      </div>
+      </span>
+      <span class="hidden shrink-0 text-muted-foreground/70 sm:inline">—</span>
+      <span class="min-w-0 flex-1 truncate text-muted-foreground">
+        {{ email.preview }}
+      </span>
+    </div>
 
-      <div class="flex min-w-0 items-center gap-1">
-        <span
-          :class="[
-            'min-w-0 flex-1 text-xs truncate',
-            email.isRead ? 'text-muted-foreground/80' : 'text-muted-foreground',
-          ]"
-        >{{ email.preview }}</span>
-        <Paperclip v-if="email.hasAttachment" class="size-3 text-muted-foreground shrink-0" />
-      </div>
+    <Paperclip
+      v-if="email.hasAttachment"
+      class="size-3.5 shrink-0 text-muted-foreground opacity-70"
+    />
+
+    <!-- Date (hidden on row hover when actions show) -->
+    <span
+      :class="[
+        'shrink-0 pl-2 text-xs tabular-nums',
+        showActions ? 'group-hover/row:hidden' : '',
+        email.isRead ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground/75',
+      ]"
+    >
+      {{ formatDate(email.receivedAt) }}
+    </span>
+
+    <!-- Hover actions -->
+    <div
+      v-if="showActions"
+      class="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-lg bg-background/95 px-0.5 shadow-sm ring-1 ring-border group-hover/row:flex"
+      @click.stop
+    >
+      <button
+        type="button"
+        class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label="Archive"
+        @click="emit('archive', email.id)"
+      >
+        <Archive class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        aria-label="Trash"
+        @click="emit('trash', email.id)"
+      >
+        <Trash2 class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        :aria-label="email.isRead ? 'Mark unread' : 'Mark read'"
+        @click="emit('markRead', email.id, !email.isRead)"
+      >
+        <MailOpen v-if="email.isRead" class="size-4" />
+        <Mail v-else class="size-4" />
+      </button>
     </div>
   </div>
 </template>
