@@ -1,12 +1,24 @@
 import { defineStore } from 'pinia'
 import type { MailMessage, MailMessageFull, ApiEmailsResponse } from '../../shared/types'
 
+/** Messages per page for mailbox lists */
+export const MAIL_PAGE_SIZE = 20
+
+export interface MailPageInfo {
+  start: number
+  end: number
+  total: number
+  page: number
+  canPrev: boolean
+  canNext: boolean
+}
+
 interface MailState {
   /** All fetched list-view emails keyed by id */
   emails: Record<string, MailMessage>
   /** Full emails (with body) keyed by id */
   fullEmails: Record<string, MailMessageFull>
-  /** Email IDs per mailbox id */
+  /** Email IDs per mailbox id (current page only) */
   idsByMailbox: Record<string, string[]>
   /** Currently selected email id */
   selectedId: string | null
@@ -18,6 +30,9 @@ interface MailState {
   emailError: string | null
   /** Pagination */
   totalByMailbox: Record<string, number>
+  /** 0-based page index per mailbox */
+  pageByMailbox: Record<string, number>
+  /** End offset of the current page window (position + loaded count) */
   positionByMailbox: Record<string, number>
   /** Email/query queryState per mailbox (for Email/queryChanges) */
   queryStateByMailbox: Record<string, string>
@@ -36,6 +51,7 @@ export const useMailStore = defineStore('mail', {
     listError: null,
     emailError: null,
     totalByMailbox: {},
+    pageByMailbox: {},
     positionByMailbox: {},
     queryStateByMailbox: {},
     emailState: null,
@@ -53,35 +69,59 @@ export const useMailStore = defineStore('mail', {
     selectedEmailFull: (state): MailMessageFull | null =>
       state.selectedId ? (state.fullEmails[state.selectedId] ?? null) : null,
 
-    hasMore: (state) => (mailboxId: string): boolean => {
-      const ids = state.idsByMailbox[mailboxId] ?? []
+    pageInfo: (state) => (mailboxId: string): MailPageInfo => {
+      const page = state.pageByMailbox[mailboxId] ?? 0
       const total = state.totalByMailbox[mailboxId] ?? 0
-      return ids.length < total
+      const count = (state.idsByMailbox[mailboxId] ?? []).length
+      if (total === 0 || count === 0) {
+        return { start: 0, end: 0, total, page, canPrev: false, canNext: false }
+      }
+      const start = page * MAIL_PAGE_SIZE + 1
+      const end = page * MAIL_PAGE_SIZE + count
+      return {
+        start,
+        end,
+        total,
+        page,
+        canPrev: page > 0,
+        canNext: end < total,
+      }
+    },
+
+    hasMore: (state) => (mailboxId: string): boolean => {
+      const page = state.pageByMailbox[mailboxId] ?? 0
+      const total = state.totalByMailbox[mailboxId] ?? 0
+      const count = (state.idsByMailbox[mailboxId] ?? []).length
+      if (total === 0 || count === 0) return false
+      return page * MAIL_PAGE_SIZE + count < total
     },
   },
 
   actions: {
-    async fetchList(mailboxId: string, reset = false) {
-      if (reset) {
-        this.idsByMailbox[mailboxId] = []
-        this.positionByMailbox[mailboxId] = 0
-      }
-      const position = this.positionByMailbox[mailboxId] ?? 0
+    async fetchPage(mailboxId: string, page = 0) {
+      const safePage = Math.max(0, page)
+      const position = safePage * MAIL_PAGE_SIZE
       this.loadingList = true
       this.listError = null
       try {
         const res = await $fetch<ApiEmailsResponse>('/api/emails', {
-          query: { mailbox: mailboxId, position, limit: 20 },
+          query: { mailbox: mailboxId, position, limit: MAIL_PAGE_SIZE },
         })
-        const newIds = res.emails.map(e => e.id)
-        // Merge into store
         for (const e of res.emails) this.emails[e.id] = e
-        const existing = reset ? [] : (this.idsByMailbox[mailboxId] ?? [])
-        this.idsByMailbox[mailboxId] = [...existing, ...newIds.filter(id => !existing.includes(id))]
+        this.idsByMailbox[mailboxId] = res.emails.map(e => e.id)
         this.totalByMailbox[mailboxId] = res.total
+        this.pageByMailbox[mailboxId] = safePage
         this.positionByMailbox[mailboxId] = position + res.emails.length
         this.queryStateByMailbox[mailboxId] = res.queryState
         if (res.emailState) this.emailState = res.emailState
+
+        // If this page is empty but earlier pages exist, step back
+        if (res.emails.length === 0 && safePage > 0 && res.total > 0) {
+          const lastPage = Math.max(0, Math.ceil(res.total / MAIL_PAGE_SIZE) - 1)
+          if (lastPage !== safePage) {
+            await this.fetchPage(mailboxId, lastPage)
+          }
+        }
       }
       catch (err: unknown) {
         this.listError = (err as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Failed to load emails'
@@ -91,9 +131,27 @@ export const useMailStore = defineStore('mail', {
       }
     },
 
+    async fetchList(mailboxId: string, reset = false) {
+      const page = reset ? 0 : (this.pageByMailbox[mailboxId] ?? 0)
+      await this.fetchPage(mailboxId, page)
+    },
+
     async fetchMore(mailboxId: string) {
-      if (!this.hasMore(mailboxId) || this.loadingList) return
-      await this.fetchList(mailboxId, false)
+      await this.fetchNextPage(mailboxId)
+    },
+
+    async fetchNextPage(mailboxId: string) {
+      if (this.loadingList) return
+      const info = this.pageInfo(mailboxId)
+      if (!info.canNext) return
+      await this.fetchPage(mailboxId, info.page + 1)
+    },
+
+    async fetchPrevPage(mailboxId: string) {
+      if (this.loadingList) return
+      const info = this.pageInfo(mailboxId)
+      if (!info.canPrev) return
+      await this.fetchPage(mailboxId, info.page - 1)
     },
 
     async fetchOne(id: string) {
@@ -293,9 +351,12 @@ export const useMailStore = defineStore('mail', {
           const idx = ids.indexOf(email.id)
 
           if (idx === -1 && (createdSet.has(email.id) || updatedSet.has(email.id))) {
-            this._insertSorted(mbId, email)
             this.totalByMailbox[mbId] = (this.totalByMailbox[mbId] ?? 0) + 1
-            this.positionByMailbox[mbId] = (this.positionByMailbox[mbId] ?? 0) + 1
+            // Only inject into the visible list on page 0 (newer mail belongs there)
+            if ((this.pageByMailbox[mbId] ?? 0) === 0) {
+              this._insertSorted(mbId, email)
+              this.positionByMailbox[mbId] = (this.positionByMailbox[mbId] ?? 0) + 1
+            }
           }
           // else: already in list — email object updated in place above
         }

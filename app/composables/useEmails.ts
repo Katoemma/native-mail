@@ -6,6 +6,7 @@ export function useEmails(mailboxId: Ref<string> | string) {
   const loading = computed(() => store.loadingList)
   const error   = computed(() => store.listError)
   const hasMore = computed(() => store.hasMore(mbId.value))
+  const pageInfo = computed(() => store.pageInfo(mbId.value))
 
   async function load(reset = false) {
     if (mbId.value) await store.fetchList(mbId.value, reset)
@@ -13,5 +14,15 @@ export function useEmails(mailboxId: Ref<string> | string) {
 
   watch(mbId, () => load(true), { immediate: false })
 
-  return { emails, loading, error, hasMore, load, loadMore: () => store.fetchMore(mbId.value) }
+  return {
+    emails,
+    loading,
+    error,
+    hasMore,
+    pageInfo,
+    load,
+    loadMore: () => store.fetchNextPage(mbId.value),
+    prevPage: () => store.fetchPrevPage(mbId.value),
+    nextPage: () => store.fetchNextPage(mbId.value),
+  }
 }

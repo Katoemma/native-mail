@@ -7,6 +7,7 @@ definePageMeta({
 import MailViewer from '@/components/mail/MailViewer.vue'
 import MailThread from '@/components/mail/MailThread.vue'
 import MailListItem from '@/components/mail/MailListItem.vue'
+import MailPagination from '@/components/mail/MailPagination.vue'
 import { Check, Trash2, X, Loader2, Undo2 } from '@lucide/vue'
 import {
   AlertDialog,
@@ -79,6 +80,23 @@ const mobileIds = computed(() => mobileEmails.value.map(e => e.id))
 const allVisibleSelected = computed(() =>
   mobileIds.value.length > 0 && mobileIds.value.every(id => selectedIds.value.includes(id)),
 )
+const pageInfo = computed(() =>
+  mailboxId.value
+    ? mailStore.pageInfo(mailboxId.value)
+    : { start: 0, end: 0, total: 0, page: 0, canPrev: false, canNext: false },
+)
+
+async function goPrevPage() {
+  if (!mailboxId.value) return
+  clearSelection()
+  await mailStore.fetchPrevPage(mailboxId.value)
+}
+
+async function goNextPage() {
+  if (!mailboxId.value) return
+  clearSelection()
+  await mailStore.fetchNextPage(mailboxId.value)
+}
 
 function selectEmail(id: string) {
   if (hasSelection.value) {
@@ -240,6 +258,12 @@ function handleForward(id: string) {
           >
             {{ activeMailbox.unreadEmails }}
           </span>
+          <MailPagination
+            :info="pageInfo"
+            :loading="mobileLoading"
+            @prev="goPrevPage"
+            @next="goNextPage"
+          />
         </template>
       </div>
 

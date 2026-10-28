@@ -5,6 +5,7 @@ import {
 } from '@lucide/vue'
 import logoUrl from '~/assets/images/logo.png'
 import { avatarStyle, senderInitials } from '~/utils/avatar'
+import MailPagination from '@/components/mail/MailPagination.vue'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import {
@@ -96,6 +97,27 @@ const panelEmails = computed(() => {
 })
 
 const panelLoading = computed(() => mailStore.loadingList)
+
+const panelPageInfo = computed(() => {
+  const id = activeMailbox.value?.id
+  return id
+    ? mailStore.pageInfo(id)
+    : { start: 0, end: 0, total: 0, page: 0, canPrev: false, canNext: false }
+})
+
+async function goPrevPage() {
+  const id = activeMailbox.value?.id
+  if (!id) return
+  clearSelection()
+  await mailStore.fetchPrevPage(id)
+}
+
+async function goNextPage() {
+  const id = activeMailbox.value?.id
+  if (!id) return
+  clearSelection()
+  await mailStore.fetchNextPage(id)
+}
 
 // ── Navigation click ─────────────────────────────────────────────────────────
 function navTo(role: string, url: string) {
@@ -398,10 +420,21 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
               “{{ searchQuery.trim() }}” · {{ searchTotal }} result{{ searchTotal === 1 ? '' : 's' }}
             </p>
           </div>
-          <Label v-if="!isSearchMode && !hasSelection" class="flex items-center gap-2 text-sm shrink-0">
-            <span>Unreads</span>
-            <Switch v-model:checked="showUnreadOnly" class="shadow-none" />
-          </Label>
+          <div
+            v-if="!isSearchMode && !hasSelection"
+            class="flex shrink-0 items-center gap-2"
+          >
+            <Label class="hidden items-center gap-2 text-sm lg:flex">
+              <span>Unreads</span>
+              <Switch v-model:checked="showUnreadOnly" class="shadow-none" />
+            </Label>
+            <MailPagination
+              :info="panelPageInfo"
+              :loading="panelLoading"
+              @prev="goPrevPage"
+              @next="goNextPage"
+            />
+          </div>
         </div>
 
         <!-- Bulk selection bar — under folder title, not in the message toolbar -->
