@@ -2,6 +2,7 @@
 import { LogOut, BadgeCheck, Bell, Search, SquarePen } from '@lucide/vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import MailCompose from '@/components/mail/MailCompose.vue'
+import MailOnboardingOverlay from '@/components/mail/MailOnboardingOverlay.vue'
 import {
   Avatar,
   AvatarFallback,
@@ -39,6 +40,7 @@ const route = useRoute()
 
 const { ensureEnabled } = useWebPush()
 const { isList } = useMailLayout()
+const { open: onboardingOpen, runBoot } = useInboxOnboarding()
 
 /**
  * Expanded sidebar width:
@@ -49,7 +51,7 @@ const sidebarWidth = computed(() => (isList.value ? '16rem' : '350px'))
 
 const { setupFocusSync } = useSync()
 onMounted(async () => {
-  await mailboxesStore.fetch()
+  await runBoot({ fetchMailboxes: () => mailboxesStore.fetch() })
   setupFocusSync()
   // Notifications default ON after login (skips if user opted out)
   void ensureEnabled()
@@ -99,6 +101,7 @@ function openCompose() {
       '--sidebar-width': sidebarWidth,
     }"
   >
+    <MailOnboardingOverlay :open="onboardingOpen" />
     <AppSidebar />
 
     <SidebarInset class="flex flex-col overflow-hidden h-svh">
