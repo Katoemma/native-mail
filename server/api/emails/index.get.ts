@@ -8,7 +8,7 @@ export default defineEventHandler(async (event): Promise<ApiEmailsResponse> => {
   const query       = getQuery(event)
   const mailboxRole = (query.mailbox as string) ?? 'inbox'
   const position    = Number(query.position ?? 0)
-  const limit       = Math.min(Number(query.limit ?? 50), 100)
+  const limit       = Math.min(Number(query.limit ?? 20), 100)
 
   return withJmap(event, async ({ client, jmapSession }) => {
     const mailboxes = await getMailboxes(client, jmapSession.accountId)

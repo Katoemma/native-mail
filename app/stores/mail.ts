@@ -71,7 +71,7 @@ export const useMailStore = defineStore('mail', {
       this.listError = null
       try {
         const res = await $fetch<ApiEmailsResponse>('/api/emails', {
-          query: { mailbox: mailboxId, position, limit: 50 },
+          query: { mailbox: mailboxId, position, limit: 20 },
         })
         const newIds = res.emails.map(e => e.id)
         // Merge into store

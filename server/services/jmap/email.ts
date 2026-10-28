@@ -168,7 +168,7 @@ export async function queryEmails(
   accountId: string,
   mailboxId: string,
   position = 0,
-  limit = 50,
+  limit = 20,
 ): Promise<{ ids: string[]; total: number; queryState: string }> {
   const response = await client.request([
     [
