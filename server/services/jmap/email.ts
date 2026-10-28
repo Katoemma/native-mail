@@ -163,19 +163,27 @@ function normaliseFull(raw: JmapEmailFull): MailMessageFull {
 // Public service functions
 // ---------------------------------------------------------------------------
 
+export type EmailQueryFilter =
+  | { inMailbox: string }
+  | { hasKeyword: string }
+
 export async function queryEmails(
   client: JmapClient,
   accountId: string,
-  mailboxId: string,
+  filter: EmailQueryFilter | string,
   position = 0,
   limit = 20,
 ): Promise<{ ids: string[]; total: number; queryState: string }> {
+  // Back-compat: plain mailbox id string
+  const jmapFilter: EmailQueryFilter =
+    typeof filter === 'string' ? { inMailbox: filter } : filter
+
   const response = await client.request([
     [
       'Email/query',
       {
         accountId,
-        filter: { inMailbox: mailboxId },
+        filter: jmapFilter,
         sort: [{ property: 'receivedAt', isAscending: false }],
         position,
         limit,

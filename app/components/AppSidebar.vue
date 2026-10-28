@@ -69,21 +69,36 @@ watch(() => route.fullPath, () => {
   closeMobileSidebar()
 })
 
-// ── Nav items — roles map to routes ──────────────────────────────────────────
+// ── Nav items — roles / virtual views map to routes ───────────────────────────
+const STARRED_KEY = 'starred'
+
 const navItems = [
-  { title: 'Inbox',  role: 'inbox'  as MailboxRole, icon: Inbox,          url: '/mail/inbox'  },
-  { title: 'Drafts', role: 'drafts' as MailboxRole, icon: FilePenLine,    url: '/mail/drafts' },
-  { title: 'Sent',   role: 'sent'   as MailboxRole, icon: SendHorizontal, url: '/mail/sent'   },
-  { title: 'Spam',   role: 'junk'   as MailboxRole, icon: ShieldAlert,    url: '/mail/junk'   },
-  { title: 'Trash',  role: 'trash'  as MailboxRole, icon: Trash2,         url: '/mail/trash'  },
+  { title: 'Inbox',   role: 'inbox' as string, icon: Inbox,          url: '/mail/inbox',   virtual: false },
+  { title: 'Starred', role: STARRED_KEY,       icon: Star,           url: '/mail/starred', virtual: true  },
+  { title: 'Drafts',  role: 'drafts',          icon: FilePenLine,    url: '/mail/drafts',  virtual: false },
+  { title: 'Sent',    role: 'sent',            icon: SendHorizontal, url: '/mail/sent',    virtual: false },
+  { title: 'Spam',    role: 'junk',            icon: ShieldAlert,    url: '/mail/junk',    virtual: false },
+  { title: 'Trash',   role: 'trash',           icon: Trash2,         url: '/mail/trash',   virtual: false },
 ]
 
 // Active item derived from current route
 const activeRole = computed(() => route.params.mailbox as string ?? 'inbox')
+const isStarredView = computed(() => activeRole.value === STARRED_KEY)
 
 // ── Second panel — mail list for the active mailbox ───────────────────────────
 const activeMailbox = computed(() =>
-  mailboxesStore.list.find(m => m.role === activeRole.value || m.id === activeRole.value) ?? null,
+  isStarredView.value
+    ? null
+    : mailboxesStore.list.find(m => m.role === activeRole.value || m.id === activeRole.value) ?? null,
+)
+
+/** Store / API key: real mailbox id, or virtual "starred" */
+const panelListKey = computed(() =>
+  isStarredView.value ? STARRED_KEY : (activeMailbox.value?.id ?? ''),
+)
+
+const panelFolderName = computed(() =>
+  isStarredView.value ? 'Starred' : (activeMailbox.value?.name ?? activeRole.value),
 )
 
 // Unread filter toggle
@@ -91,29 +106,28 @@ const showUnreadOnly = ref(false)
 
 // Emails shown in the second panel
 const panelEmails = computed(() => {
-  const ids = mailStore.idsByMailbox[activeMailbox.value?.id ?? ''] ?? []
+  const ids = mailStore.idsByMailbox[panelListKey.value] ?? []
   const all = ids.map(id => mailStore.emails[id]).filter(Boolean)
   return showUnreadOnly.value ? all.filter(e => !e.isRead) : all
 })
 
 const panelLoading = computed(() => mailStore.loadingList)
 
-const panelPageInfo = computed(() => {
-  const id = activeMailbox.value?.id
-  return id
-    ? mailStore.pageInfo(id)
-    : { start: 0, end: 0, total: 0, page: 0, canPrev: false, canNext: false }
-})
+const panelPageInfo = computed(() =>
+  panelListKey.value
+    ? mailStore.pageInfo(panelListKey.value)
+    : { start: 0, end: 0, total: 0, page: 0, canPrev: false, canNext: false },
+)
 
 async function goPrevPage() {
-  const id = activeMailbox.value?.id
+  const id = panelListKey.value
   if (!id) return
   clearSelection()
   await mailStore.fetchPrevPage(id)
 }
 
 async function goNextPage() {
-  const id = activeMailbox.value?.id
+  const id = panelListKey.value
   if (!id) return
   clearSelection()
   await mailStore.fetchNextPage(id)
@@ -128,7 +142,13 @@ function navTo(role: string, url: string) {
 
   void router.push(url)
 
-  // Prefetch mailbox in the background after the drawer starts closing
+  // Prefetch mailbox / virtual view in the background after the drawer starts closing
+  if (role === STARRED_KEY) {
+    if (!mailStore.idsByMailbox[STARRED_KEY]?.length) {
+      void mailStore.fetchList(STARRED_KEY, true)
+    }
+    return
+  }
   const mb = mailboxesStore.list.find(m => m.role === role)
   if (mb && !mailStore.idsByMailbox[mb.id]?.length) {
     void mailStore.fetchList(mb.id, true)
@@ -341,12 +361,15 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                             ? ''
                             : 'md:h-8 md:justify-center md:gap-2 md:px-2',
                         ]"
-                        @click="navTo(item.role!, item.url)"
+                        @click="navTo(item.role, item.url)"
                       >
                         <component
                           :is="item.icon"
                           class="size-[18px] shrink-0"
                           :stroke-width="1.75"
+                          :class="item.role === STARRED_KEY && activeRole === STARRED_KEY
+                            ? 'fill-amber-400 text-amber-400'
+                            : ''"
                         />
                         <span
                           :class="[
@@ -357,7 +380,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                           {{ item.title }}
                         </span>
                         <span
-                          v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
+                          v-if="!item.virtual && mailboxesStore.byRole(item.role as MailboxRole)?.unreadEmails"
                           :class="[
                             'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold tabular-nums text-primary-foreground',
                             showNavLabels
@@ -365,9 +388,9 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                               : 'md:absolute md:top-1 md:right-1 md:ml-0 md:size-4 md:min-w-0 md:px-0',
                           ]"
                         >
-                          {{ mailboxesStore.byRole(item.role!)!.unreadEmails! > 9
+                          {{ mailboxesStore.byRole(item.role as MailboxRole)!.unreadEmails! > 9
                             ? '9+'
-                            : mailboxesStore.byRole(item.role!)?.unreadEmails }}
+                            : mailboxesStore.byRole(item.role as MailboxRole)?.unreadEmails }}
                         </span>
                       </SidebarMenuButton>
                     </TooltipTrigger>
@@ -378,10 +401,10 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                     >
                       {{ item.title }}
                       <span
-                        v-if="mailboxesStore.byRole(item.role!)?.unreadEmails"
+                        v-if="!item.virtual && mailboxesStore.byRole(item.role as MailboxRole)?.unreadEmails"
                         class="ml-1.5 text-muted-foreground"
                       >
-                        · {{ mailboxesStore.byRole(item.role!)?.unreadEmails }} unread
+                        · {{ mailboxesStore.byRole(item.role as MailboxRole)?.unreadEmails }} unread
                       </span>
                     </TooltipContent>
                   </Tooltip>
@@ -403,7 +426,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
         <div class="flex w-full items-center justify-between gap-2">
           <div class="min-w-0">
             <div class="text-base font-medium text-foreground truncate">
-              {{ isSearchMode ? 'Search' : (activeMailbox?.name ?? activeRole) }}
+              {{ isSearchMode ? 'Search' : panelFolderName }}
             </div>
             <p
               v-if="isSearchMode && searchQuery.trim()"

@@ -38,8 +38,11 @@ const {
   clear: clearSelection,
 } = useMailSelection()
 
+const STARRED_KEY = 'starred'
+
 const mailboxSlug = computed(() => route.params.mailbox as string)
 const selectedId  = computed(() => (route.query.id as string) ?? null)
+const isStarredView = computed(() => mailboxSlug.value === STARRED_KEY)
 
 /** Full-width list visible (list mode, or mobile split when nothing selected). */
 const showListPane = computed(() => {
@@ -53,11 +56,18 @@ const showReaderPane = computed(() => {
   return true
 })
 
-const mailboxId = computed(() =>
-  mailboxesStore.list.find(m => m.role === mailboxSlug.value || m.id === mailboxSlug.value)?.id ?? null,
-)
+/** Real mailbox id, or virtual "starred" list key */
+const mailboxId = computed(() => {
+  if (isStarredView.value) return STARRED_KEY
+  return mailboxesStore.list.find(m => m.role === mailboxSlug.value || m.id === mailboxSlug.value)?.id ?? null
+})
 const activeMailbox = computed(() =>
-  mailboxesStore.list.find(m => m.role === mailboxSlug.value || m.id === mailboxSlug.value) ?? null,
+  isStarredView.value
+    ? null
+    : mailboxesStore.list.find(m => m.role === mailboxSlug.value || m.id === mailboxSlug.value) ?? null,
+)
+const folderTitle = computed(() =>
+  isStarredView.value ? 'Starred' : (activeMailbox.value?.name ?? mailboxSlug.value),
 )
 
 const isTrashFolder = computed(() => mailboxSlug.value === 'trash')
@@ -65,7 +75,7 @@ const isTrashFolder = computed(() => mailboxSlug.value === 'trash')
 watch(mailboxId, async (id) => {
   clearSelection()
   if (!id) return
-  mailboxesStore.select(id)
+  if (!isStarredView.value) mailboxesStore.select(id)
   if (!mailStore.idsByMailbox[id]?.length) {
     await mailStore.fetchList(id, true)
   }
@@ -250,7 +260,7 @@ function handleForward(id: string) {
         </template>
         <template v-else>
           <h2 class="font-semibold text-base">
-            {{ activeMailbox?.name ?? mailboxSlug }}
+            {{ folderTitle }}
           </h2>
           <span
             v-if="activeMailbox?.unreadEmails"

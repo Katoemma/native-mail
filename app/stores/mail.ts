@@ -204,10 +204,29 @@ export const useMailStore = defineStore('mail', {
 
     async markStarred(id: string, starred = true) {
       this._setKeyword(id, '$flagged', starred)
+
+      // Keep the virtual Starred view in sync when it's loaded
+      const starredKey = 'starred'
+      if (starredKey in this.idsByMailbox) {
+        const ids = this.idsByMailbox[starredKey] ?? []
+        if (starred && !ids.includes(id)) {
+          const email = this.emails[id]
+          if (email) this._insertSorted(starredKey, email)
+          else this.idsByMailbox[starredKey] = [id, ...ids]
+          this.totalByMailbox[starredKey] = (this.totalByMailbox[starredKey] ?? 0) + 1
+        }
+        else if (!starred && ids.includes(id)) {
+          this.idsByMailbox[starredKey] = ids.filter(i => i !== id)
+          this.totalByMailbox[starredKey] = Math.max(0, (this.totalByMailbox[starredKey] ?? 1) - 1)
+        }
+      }
+
       await $fetch(`/api/emails/${id}`, {
         method: 'PATCH',
         body: { starred },
-      }).catch(() => this._setKeyword(id, '$flagged', !starred))
+      }).catch(() => {
+        this._setKeyword(id, '$flagged', !starred)
+      })
     },
 
     async move(id: string, mailboxId: string) {
