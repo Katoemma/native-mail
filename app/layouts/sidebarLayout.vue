@@ -196,11 +196,11 @@ function openCompose() {
         <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
           <button
             type="button"
-            class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            class="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-11"
             aria-label="Settings"
             @click="quickSettingsOpen = true"
           >
-            <Settings class="size-[1.15rem]" :stroke-width="1.75" />
+            <Settings class="size-6" :stroke-width="1.75" />
           </button>
 
           <DropdownMenu>
