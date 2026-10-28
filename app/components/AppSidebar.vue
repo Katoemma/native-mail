@@ -5,13 +5,11 @@ import {
 } from '@lucide/vue'
 import logoUrl from '~/assets/images/logo.png'
 import { avatarStyle, senderInitials } from '~/utils/avatar'
-import NavUser from '@/components/NavUser.vue'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -51,7 +49,6 @@ const props = withDefaults(defineProps<SidebarProps>(), {
 // ── Stores ────────────────────────────────────────────────────────────────────
 const mailboxesStore = useMailboxesStore()
 const mailStore      = useMailStore()
-const sessionStore   = useSessionStore()
 const composer       = useComposerStore()
 const router         = useRouter()
 const route          = useRoute()
@@ -221,14 +218,6 @@ function openCompose() {
   composer.openCompose()
 }
 
-// ── User ──────────────────────────────────────────────────────────────────────
-// Use || (not ??) so empty strings from a partial session still fall through.
-const user = computed(() => ({
-  name:   sessionStore.displayName || sessionStore.username || 'User',
-  email:  sessionStore.email || sessionStore.username || '',
-  avatar: '',
-}))
-
 // ── Format date ───────────────────────────────────────────────────────────────
 function formatDate(iso: string | null): string {
   if (!iso) return ''
@@ -388,11 +377,6 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <!-- Profile lives in the mobile top header; keep it in the rail on desktop -->
-      <SidebarFooter class="hidden px-2 md:flex md:px-0">
-        <NavUser :user="user" />
-      </SidebarFooter>
     </Sidebar>
 
     <!-- ── Second sidebar: mail list panel (split / classic layout only) ─ -->

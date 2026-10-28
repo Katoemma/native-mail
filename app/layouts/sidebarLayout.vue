@@ -143,15 +143,16 @@ function openCompose() {
           />
         </form>
 
-        <div class="shrink-0 md:hidden">
+        <!-- Account — top-right like Gmail -->
+        <div class="ml-auto shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <button
                 type="button"
-                class="inline-flex items-center justify-center rounded-full p-0.5 ring-2 ring-green-500"
+                class="inline-flex items-center justify-center rounded-full p-0.5 ring-2 ring-offset-2 ring-offset-background ring-primary/40 hover:ring-primary/70 transition-[box-shadow]"
                 aria-label="Account menu"
               >
-                <Avatar class="size-9 rounded-full">
+                <Avatar class="size-8 rounded-full sm:size-9">
                   <AvatarImage :src="user.avatar" :alt="user.name" />
                   <AvatarFallback class="rounded-full text-xs font-semibold">
                     {{ initials }}
