@@ -41,7 +41,7 @@ const senderName = computed(() => from.value?.name || from.value?.email || '(unk
 <template>
   <div
     :class="[
-      'group/row relative flex w-full min-w-0 cursor-pointer items-center gap-1 border-b px-2 text-left transition-colors sm:gap-1.5 sm:px-3',
+      'group/row relative flex w-full min-w-0 cursor-pointer items-center gap-1 border-b px-2 text-left text-sm transition-colors sm:gap-1.5 sm:px-3',
       'h-11 sm:h-10',
       active
         ? 'bg-accent text-accent-foreground'
@@ -91,7 +91,7 @@ const senderName = computed(() => from.value?.name || from.value?.email || '(unk
     <!-- Sender -->
     <span
       :class="[
-        'hidden w-[7.5rem] shrink-0 truncate text-[13px] sm:block sm:w-40 md:w-44',
+        'hidden w-[7.5rem] shrink-0 truncate sm:block sm:w-40 md:w-44',
         email.isRead ? 'font-normal text-foreground/80' : 'font-bold text-foreground',
       ]"
     >
@@ -99,7 +99,7 @@ const senderName = computed(() => from.value?.name || from.value?.email || '(unk
     </span>
 
     <!-- Subject — preview (Gmail inline) -->
-    <div class="flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden text-[13px] leading-snug">
+    <div class="flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden leading-snug">
       <!-- Mobile: sender above isn't shown; prefix name -->
       <span
         :class="[
