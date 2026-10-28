@@ -38,8 +38,6 @@ const emit = defineEmits<{
 const mailStore      = useMailStore()
 const mailboxesStore = useMailboxesStore()
 const composer       = useComposerStore()
-const { isSelected, toggle: toggleSelect } = useMailSelection()
-
 const email      = computed<MailMessageFull | null>(() => mailStore.fullEmails[props.emailId] ?? null)
 const error      = computed(() => mailStore.emailError)
 const isFetching = ref(true)
@@ -386,20 +384,6 @@ const otherAttachments = computed(() =>
           </TooltipTrigger>
           <TooltipContent>Back</TooltipContent>
         </Tooltip>
-
-        <!-- Select current message — left side, not with action icons -->
-        <button
-          type="button"
-          class="flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
-          :class="isSelected(emailId)
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-muted-foreground/40 bg-background'"
-          :aria-label="isSelected(emailId) ? 'Deselect message' : 'Select message'"
-          :aria-pressed="isSelected(emailId)"
-          @click="toggleSelect(emailId)"
-        >
-          <Check v-if="isSelected(emailId)" class="size-3.5" :stroke-width="2.5" />
-        </button>
 
         <div class="flex-1" />
 
