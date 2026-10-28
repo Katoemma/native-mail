@@ -296,41 +296,33 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
           >
         </NuxtLink>
 
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <TooltipProvider :delay-duration="200">
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <SidebarMenuButton
-                    size="lg"
-                    as-child
-                    :class="showNavLabels ? 'h-11' : 'md:h-8 md:p-0'"
-                  >
-                    <button type="button" @click="openCompose()">
-                      <div class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shrink-0">
-                        <SquarePen class="size-4" :stroke-width="1.75" />
-                      </div>
-                      <div
-                        v-if="showNavLabels"
-                        class="grid min-w-0 flex-1 text-left text-sm leading-tight"
-                      >
-                        <span class="truncate font-semibold tracking-tight">Compose</span>
-                        <span class="truncate text-xs text-muted-foreground">New message</span>
-                      </div>
-                    </button>
-                  </SidebarMenuButton>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="right"
-                  align="center"
-                  :hidden="showNavLabels"
-                >
-                  Compose
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <TooltipProvider :delay-duration="200">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <button
+                type="button"
+                :class="[
+                  'inline-flex shrink-0 items-center gap-3 bg-primary text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.98]',
+                  showNavLabels
+                    ? 'h-14 w-full max-w-[9.5rem] rounded-2xl px-4 text-sm font-medium'
+                    : 'size-10 justify-center rounded-2xl md:size-10',
+                ]"
+                aria-label="Compose"
+                @click="openCompose()"
+              >
+                <SquarePen class="size-5 shrink-0" :stroke-width="1.75" />
+                <span v-if="showNavLabels">Compose</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="right"
+              align="center"
+              :hidden="showNavLabels"
+            >
+              Compose
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </SidebarHeader>
 
       <SidebarContent>
