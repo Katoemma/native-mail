@@ -22,20 +22,22 @@ defineProps<{
         aria-busy="true"
         aria-label="Loading your inbox"
       >
-        <div class="flex flex-1 flex-col items-center justify-center gap-7 px-6">
+        <div class="flex flex-1 flex-col items-center justify-center gap-8 px-6">
           <img
             :src="logoUrl"
             alt="Native"
-            class="h-9 w-auto select-none sm:h-11"
+            class="h-10 w-auto select-none sm:h-12"
             width="640"
             height="200"
             draggable="false"
           >
-          <p class="text-sm tracking-wide text-muted-foreground">
-            Native <span class="font-medium text-foreground/80">Mail</span>
-          </p>
-          <div class="h-0.5 w-36 overflow-hidden rounded-full bg-muted">
-            <div class="mail-boot-bar h-full rounded-full bg-primary" />
+          <div class="flex flex-col items-center gap-3">
+            <p class="text-sm tracking-wide text-muted-foreground">
+              Native <span class="font-medium text-foreground/80">Mail</span>
+            </p>
+            <div class="h-0.5 w-40 overflow-hidden rounded-full bg-muted">
+              <div class="mail-boot-bar h-full rounded-full bg-primary" />
+            </div>
           </div>
         </div>
 

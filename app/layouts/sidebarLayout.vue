@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/sidebar'
 
 const mailboxesStore = useMailboxesStore()
+const mailStore = useMailStore()
 const sessionStore = useSessionStore()
 const composer = useComposerStore()
 const route = useRoute()
@@ -67,6 +68,31 @@ const mailboxLabel = computed(() => {
   if (!slug) return 'Inbox'
   const mb = mailboxesStore.list.find(m => m.role === slug || m.id === slug)
   return mb?.name ?? slug.charAt(0).toUpperCase() + slug.slice(1)
+})
+
+/** Open message id from ?id= */
+const readingId = computed(() => {
+  const id = route.query.id
+  return typeof id === 'string' && id ? id : null
+})
+
+const readingSubject = computed(() => {
+  if (!readingId.value) return null
+  const list = mailStore.emails[readingId.value]
+  const full = mailStore.fullEmails[readingId.value]
+  const subject = (full?.subject ?? list?.subject ?? '').trim()
+  return subject || '(no subject)'
+})
+
+useHead({
+  title: computed(() => {
+    if (readingId.value && readingSubject.value) {
+      return `${readingSubject.value} · Native Mail`
+    }
+    if (route.path === '/profile') return 'Profile · Native Mail'
+    if (route.path === '/mail/search') return 'Search · Native Mail'
+    return `${mailboxLabel.value} · Native Mail`
+  }),
 })
 
 const user = computed(() => ({
@@ -114,7 +140,7 @@ function openCompose() {
           />
           <!-- Desktop breadcrumb — split mode (list lives in the sidebar panel) -->
           <Breadcrumb
-            v-if="!isList"
+            v-if="!isList && !readingId"
             class="hidden min-w-0 md:block"
           >
             <BreadcrumbList>
@@ -131,8 +157,17 @@ function openCompose() {
           </Breadcrumb>
         </div>
 
-        <!-- Search: capped width, centered — list mode + mobile; hidden on desktop split -->
+        <!-- Reading: show email subject in the header (and browser tab via useHead) -->
+        <h1
+          v-if="readingId"
+          class="min-w-0 max-w-2xl justify-self-center truncate text-center text-sm font-medium tracking-tight text-foreground sm:text-base"
+        >
+          {{ readingSubject }}
+        </h1>
+
+        <!-- Search: capped width, centered — list mode + mobile; hidden while reading / desktop split -->
         <form
+          v-else
           class="mx-auto w-full max-w-md justify-self-center"
           :class="isList ? 'flex' : 'flex md:invisible md:pointer-events-none'"
           @submit.prevent="searchNow"
