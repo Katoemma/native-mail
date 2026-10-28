@@ -336,7 +336,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                       <SidebarMenuButton
                         :is-active="activeRole === item.role"
                         :class="[
-                          'relative h-11 gap-3 px-3',
+                          'relative h-11 gap-3 px-3 font-normal data-[active=true]:font-normal',
                           showNavLabels
                             ? ''
                             : 'md:h-8 md:justify-center md:gap-2 md:px-2',
@@ -350,7 +350,7 @@ function mailAvatarStyle(mail: { from: { name?: string | null; email: string }[]
                         />
                         <span
                           :class="[
-                            'truncate text-[0.9375rem] font-medium tracking-tight',
+                            'truncate text-[0.9375rem] font-normal tracking-tight',
                             showNavLabels ? '' : 'md:sr-only',
                           ]"
                         >
