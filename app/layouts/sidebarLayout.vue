@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { LogOut, BadgeCheck, Bell, Search, SquarePen } from '@lucide/vue'
+import { LogOut, BadgeCheck, Bell, Search, Settings, SquarePen } from '@lucide/vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import MailCompose from '@/components/mail/MailCompose.vue'
 import MailOnboardingOverlay from '@/components/mail/MailOnboardingOverlay.vue'
+import MailQuickSettings from '@/components/mail/MailQuickSettings.vue'
 import {
   Avatar,
   AvatarFallback,
@@ -42,6 +43,7 @@ const route = useRoute()
 const { ensureEnabled } = useWebPush()
 const { isList } = useMailLayout()
 const { open: onboardingOpen, runBoot } = useInboxOnboarding()
+const quickSettingsOpen = ref(false)
 
 /**
  * Expanded sidebar width:
@@ -63,6 +65,7 @@ const { query: searchQuery, searchNow } = useDebouncedMailSearch(350)
 
 const mailboxLabel = computed(() => {
   if (route.path === '/profile') return 'Profile'
+  if (route.path === '/settings') return 'Settings'
   if (route.path === '/mail/search') return 'Search'
   const slug = (route.params.mailbox as string | undefined) ?? ''
   if (!slug) return 'Inbox'
@@ -90,6 +93,7 @@ useHead({
       return `${readingSubject.value} · Native Mail`
     }
     if (route.path === '/profile') return 'Profile · Native Mail'
+    if (route.path === '/settings') return 'Settings · Native Mail'
     if (route.path === '/mail/search') return 'Search · Native Mail'
     return `${mailboxLabel.value} · Native Mail`
   }),
@@ -128,48 +132,48 @@ function openCompose() {
     }"
   >
     <MailOnboardingOverlay :open="onboardingOpen" />
+    <MailQuickSettings v-model:open="quickSettingsOpen" />
     <AppSidebar />
 
     <SidebarInset class="flex flex-col overflow-hidden h-svh">
-      <header class="bg-background sticky top-0 z-20 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
-        <div class="flex min-w-0 items-center gap-2">
-          <SidebarTrigger class="-ml-0.5 shrink-0" />
-          <Separator
-            orientation="vertical"
-            class="hidden data-[orientation=vertical]:h-4 md:block"
-          />
-          <!-- Desktop breadcrumb — split mode (list lives in the sidebar panel) -->
-          <Breadcrumb
-            v-if="!isList && !readingId"
-            class="hidden min-w-0 md:block"
-          >
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/mail/inbox">
-                  All Inboxes
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem class="min-w-0">
-                <BreadcrumbPage class="truncate">{{ mailboxLabel }}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
+      <header class="bg-background sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+        <SidebarTrigger class="-ml-0.5 shrink-0" />
+        <Separator
+          orientation="vertical"
+          class="hidden data-[orientation=vertical]:h-4 md:block"
+        />
 
-        <!-- Reading: show email subject in the header (and browser tab via useHead) -->
+        <!-- Desktop breadcrumb — split mode only when not reading -->
+        <Breadcrumb
+          v-if="!isList && !readingId"
+          class="mr-1 hidden min-w-0 shrink-0 md:block"
+        >
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/mail/inbox">
+                All Inboxes
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem class="min-w-0">
+              <BreadcrumbPage class="truncate">{{ mailboxLabel }}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        <!-- Reading: subject at start of header -->
         <h1
           v-if="readingId"
-          class="min-w-0 max-w-2xl justify-self-center truncate text-center text-sm font-medium tracking-tight text-foreground sm:text-base"
+          class="min-w-0 flex-1 truncate text-sm font-medium tracking-tight text-foreground sm:text-base"
         >
           {{ readingSubject }}
         </h1>
 
-        <!-- Search: capped width, centered — list mode + mobile; hidden while reading / desktop split -->
+        <!-- Search at start (after trigger), not centered -->
         <form
           v-else
-          class="mx-auto w-full max-w-md justify-self-center"
-          :class="isList ? 'flex' : 'flex md:invisible md:pointer-events-none'"
+          class="min-w-0 max-w-xl flex-1"
+          :class="isList ? 'flex' : 'flex md:max-w-md'"
           @submit.prevent="searchNow"
         >
           <div class="relative w-full">
@@ -189,8 +193,16 @@ function openCompose() {
           </div>
         </form>
 
-        <!-- Account — top-right -->
-        <div class="justify-self-end">
+        <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
+          <button
+            type="button"
+            class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Settings"
+            @click="quickSettingsOpen = true"
+          >
+            <Settings class="size-[1.15rem]" :stroke-width="1.75" />
+          </button>
+
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <button
@@ -225,6 +237,10 @@ function openCompose() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
+                <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/settings')">
+                  <Settings class="size-4" />
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuItem class="cursor-pointer" @click="navigateTo('/profile')">
                   <BadgeCheck class="size-4" />
                   Account
