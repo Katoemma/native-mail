@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LogOut, BadgeCheck, Bell, SquarePen } from '@lucide/vue'
+import { LogOut, BadgeCheck, Bell, Search, SquarePen } from '@lucide/vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import MailCompose from '@/components/mail/MailCompose.vue'
 import {
@@ -102,54 +102,62 @@ function openCompose() {
     <AppSidebar />
 
     <SidebarInset class="flex flex-col overflow-hidden h-svh">
-      <header class="bg-background sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b px-4 py-3 md:p-4">
-        <SidebarTrigger class="-ml-1 shrink-0" />
-        <Separator
-          orientation="vertical"
-          class="mr-1 hidden data-[orientation=vertical]:h-4 md:mr-2 md:block"
-        />
+      <header class="bg-background sticky top-0 z-20 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
+        <div class="flex min-w-0 items-center gap-2">
+          <SidebarTrigger class="-ml-0.5 shrink-0" />
+          <Separator
+            orientation="vertical"
+            class="hidden data-[orientation=vertical]:h-4 md:block"
+          />
+          <!-- Desktop breadcrumb — split mode (list lives in the sidebar panel) -->
+          <Breadcrumb
+            v-if="!isList"
+            class="hidden min-w-0 md:block"
+          >
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/mail/inbox">
+                  All Inboxes
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem class="min-w-0">
+                <BreadcrumbPage class="truncate">{{ mailboxLabel }}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
 
-        <!-- Desktop breadcrumb — split mode (list lives in the sidebar panel) -->
-        <Breadcrumb
-          v-if="!isList"
-          class="hidden min-w-0 flex-1 md:block"
-        >
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/mail/inbox">
-                All Inboxes
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem class="min-w-0">
-              <BreadcrumbPage class="truncate">{{ mailboxLabel }}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
-        <!-- Search: always on mobile; also on desktop in list mode (no sidebar list panel) -->
+        <!-- Search: capped width, centered — list mode + mobile; hidden on desktop split -->
         <form
-          class="min-w-0 flex-1"
-          :class="isList ? '' : 'md:hidden'"
+          class="mx-auto w-full max-w-md justify-self-center"
+          :class="isList ? 'flex' : 'flex md:invisible md:pointer-events-none'"
           @submit.prevent="searchNow"
         >
-          <Input
-            v-model="searchQuery"
-            type="search"
-            placeholder="Search mail..."
-            class="h-9 border border-border bg-background shadow-none"
-            enterkeyhint="search"
-            autocomplete="off"
-          />
+          <div class="relative w-full">
+            <Search
+              class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              :stroke-width="1.75"
+              aria-hidden="true"
+            />
+            <Input
+              v-model="searchQuery"
+              type="search"
+              placeholder="Search mail..."
+              class="h-10 w-full rounded-full border-0 bg-muted/70 pl-9 pr-4 shadow-none transition-[background-color,box-shadow] placeholder:text-muted-foreground/80 hover:bg-muted focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/40"
+              enterkeyhint="search"
+              autocomplete="off"
+            />
+          </div>
         </form>
 
-        <!-- Account — top-right like Gmail -->
-        <div class="ml-auto shrink-0">
+        <!-- Account — top-right -->
+        <div class="justify-self-end">
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <button
                 type="button"
-                class="inline-flex items-center justify-center rounded-full p-0.5 ring-2 ring-offset-2 ring-offset-background ring-primary/40 hover:ring-primary/70 transition-[box-shadow]"
+                class="inline-flex items-center justify-center rounded-full p-0.5 ring-2 ring-offset-2 ring-offset-background ring-primary/40 transition-[box-shadow] hover:ring-primary/70"
                 aria-label="Account menu"
               >
                 <Avatar class="size-8 rounded-full sm:size-9">
