@@ -25,23 +25,38 @@ import '../../_/client.mjs';
 import '../../_/oauth.mjs';
 import '../../_/attachment.mjs';
 
+const VIRTUAL_VIEWS = /* @__PURE__ */ new Set(["starred"]);
 const index_get = defineEventHandler(async (event) => {
   var _a, _b, _c;
   const query = getQuery(event);
   const mailboxRole = (_a = query.mailbox) != null ? _a : "inbox";
   const position = Number((_b = query.position) != null ? _b : 0);
-  const limit = Math.min(Number((_c = query.limit) != null ? _c : 50), 100);
+  const limit = Math.min(Number((_c = query.limit) != null ? _c : 20), 100);
   return withJmap(event, async ({ client, jmapSession }) => {
-    const mailboxes = await getMailboxes(client, jmapSession.accountId);
-    const mb = mailboxes.find((m) => m.role === mailboxRole || m.id === mailboxRole);
-    if (!mb) throw createError({ statusCode: 404, statusMessage: `Mailbox "${mailboxRole}" not found` });
-    const { ids, total, queryState } = await queryEmails(
-      client,
-      jmapSession.accountId,
-      mb.id,
-      position,
-      limit
-    );
+    let ids;
+    let total;
+    let queryState;
+    if (VIRTUAL_VIEWS.has(mailboxRole) || mailboxRole === "starred") {
+      ;
+      ({ ids, total, queryState } = await queryEmails(
+        client,
+        jmapSession.accountId,
+        { hasKeyword: "$flagged" },
+        position,
+        limit
+      ));
+    } else {
+      const mailboxes = await getMailboxes(client, jmapSession.accountId);
+      const mb = mailboxes.find((m) => m.role === mailboxRole || m.id === mailboxRole);
+      if (!mb) throw createError({ statusCode: 404, statusMessage: `Mailbox "${mailboxRole}" not found` });
+      ({ ids, total, queryState } = await queryEmails(
+        client,
+        jmapSession.accountId,
+        mb.id,
+        position,
+        limit
+      ));
+    }
     const { emails, state: emailState } = await getEmailList(client, jmapSession.accountId, ids);
     return { emails, total, position, queryState, emailState };
   });

@@ -93,14 +93,15 @@ function normaliseFull(raw) {
     references: (_n = headers["references"]) != null ? _n : null
   };
 }
-async function queryEmails(client, accountId, mailboxId, position = 0, limit = 50) {
+async function queryEmails(client, accountId, filter, position = 0, limit = 20) {
   var _a, _b, _c;
+  const jmapFilter = typeof filter === "string" ? { inMailbox: filter } : filter;
   const response = await client.request([
     [
       "Email/query",
       {
         accountId,
-        filter: { inMailbox: mailboxId },
+        filter: jmapFilter,
         sort: [{ property: "receivedAt", isAscending: false }],
         position,
         limit,
