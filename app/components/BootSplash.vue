@@ -36,11 +36,9 @@ withDefaults(defineProps<{
         </p>
 
         <div
-          class="boot-track mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-muted sm:mt-10 sm:h-2 sm:w-56"
+          class="boot-loader mt-8 sm:mt-10"
           aria-hidden="true"
-        >
-          <div class="boot-bar h-full rounded-full bg-primary" />
-        </div>
+        />
       </div>
     </div>
 
@@ -78,20 +76,40 @@ withDefaults(defineProps<{
   50% { opacity: 0.88; transform: translateY(-1px); }
 }
 
-@keyframes bootBar {
-  0% { transform: translateX(-100%); width: 35%; }
-  50% { transform: translateX(55%); width: 50%; }
-  100% { transform: translateX(280%); width: 35%; }
+.boot-loader {
+  width: 40px;
+  aspect-ratio: 1;
+  color: var(--primary);
+  position: relative;
+  background: radial-gradient(10px, currentColor 94%, #0000);
 }
 
-.boot-bar {
-  animation: bootBar 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+.boot-loader::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(9px at bottom right, #0000 94%, currentColor) top left,
+    radial-gradient(9px at bottom left, #0000 94%, currentColor) top right,
+    radial-gradient(9px at top right, #0000 94%, currentColor) bottom left,
+    radial-gradient(9px at top left, #0000 94%, currentColor) bottom right;
+  background-size: 20px 20px;
+  background-repeat: no-repeat;
+  animation: bootOrb 1.5s infinite cubic-bezier(0.3, 1, 0, 1);
+}
+
+@keyframes bootOrb {
+  33% { inset: -10px; transform: rotate(0deg); }
+  66% { inset: -10px; transform: rotate(90deg); }
+  100% { inset: 0; transform: rotate(90deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .boot-logo,
-  .boot-bar {
+  .boot-loader::before {
     animation: none;
   }
 }
 </style>
+
