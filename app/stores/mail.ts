@@ -175,31 +175,50 @@ export const useMailStore = defineStore('mail', {
       this.selectedId = id
     },
 
-    // Optimistic keyword update
+    // Optimistic keyword update (list + full, whichever exist)
     _setKeyword(id: string, keyword: string, value: boolean) {
-      const email = this.emails[id]
-      if (!email) return
-      const kw = { ...email.keywords }
-      if (value) kw[keyword] = true
-      else delete kw[keyword]
-      this.emails[id] = {
-        ...email,
-        keywords: kw,
-        isRead: '$seen' in kw,
-        isStarred: '$flagged' in kw,
+      const apply = <T extends MailMessage>(msg: T): T => {
+        const kw = { ...msg.keywords }
+        if (value) kw[keyword] = true
+        else delete kw[keyword]
+        return {
+          ...msg,
+          keywords: kw,
+          isRead: '$seen' in kw,
+          isStarred: '$flagged' in kw,
+        }
       }
-      const full = this.fullEmails[id]
-      if (full) {
-        this.fullEmails[id] = { ...full, keywords: kw, isRead: '$seen' in kw, isStarred: '$flagged' in kw }
-      }
+      if (this.emails[id]) this.emails[id] = apply(this.emails[id])
+      if (this.fullEmails[id]) this.fullEmails[id] = apply(this.fullEmails[id])
     },
 
     async markRead(id: string, read = true) {
+      const before = this.emails[id] ?? this.fullEmails[id]
+      const wasRead = before?.isRead ?? false
+      const mailboxIds = before
+        ? Object.keys(before.mailboxIds || {}).filter(k => before.mailboxIds[k])
+        : []
+
       this._setKeyword(id, '$seen', read)
-      await $fetch(`/api/emails/${id}`, {
-        method: 'PATCH',
-        body: { read },
-      }).catch(() => this._setKeyword(id, '$seen', !read))
+
+      // Sidebar badges come from mailbox.unreadEmails — keep them in sync immediately
+      // (WS Mailbox refresh can lag or miss when opening from a push notification).
+      if (before && wasRead !== read && mailboxIds.length) {
+        useMailboxesStore().adjustUnread(mailboxIds, read ? -1 : 1)
+      }
+
+      try {
+        await $fetch(`/api/emails/${id}`, {
+          method: 'PATCH',
+          body: { read },
+        })
+      }
+      catch {
+        this._setKeyword(id, '$seen', !read)
+        if (before && wasRead !== read && mailboxIds.length) {
+          useMailboxesStore().adjustUnread(mailboxIds, read ? 1 : -1)
+        }
+      }
     },
 
     async markStarred(id: string, starred = true) {

@@ -55,5 +55,21 @@ export const useMailboxesStore = defineStore('mailboxes', {
       const mb = this.list.find(m => m.role === role)
       if (mb) this.selectedId = mb.id
     },
+
+    /**
+     * Optimistically bump unread badges for the given mailboxes.
+     * Used when mark-read / mark-unread happens locally before Mailbox/get refreshes.
+     */
+    adjustUnread(mailboxIds: string[], delta: number) {
+      if (!mailboxIds.length || delta === 0) return
+      const set = new Set(mailboxIds)
+      this.list = this.list.map((mb) => {
+        if (!set.has(mb.id)) return mb
+        return {
+          ...mb,
+          unreadEmails: Math.max(0, (mb.unreadEmails ?? 0) + delta),
+        }
+      })
+    },
   },
 })
