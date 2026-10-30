@@ -22,6 +22,13 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
       ],
+      // Avoid light flash before Vue mounts — mirrors useTheme storage key
+      script: [
+        {
+          innerHTML: `(function(){try{var t=localStorage.getItem('nm_theme');var d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark'}else{document.documentElement.style.colorScheme='light'}}catch(e){}})()`,
+          tagPosition: 'head',
+        },
+      ],
     },
   },
 

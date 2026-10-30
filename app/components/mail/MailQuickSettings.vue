@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LayoutList, PanelsTopLeft } from '@lucide/vue'
+import { LayoutList, Moon, PanelsTopLeft, Sun, Monitor } from '@lucide/vue'
 import {
   Sheet,
   SheetContent,
@@ -8,19 +8,31 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import type { MailLayoutMode } from '~/composables/useMailLayout'
+import type { ThemePreference } from '~/composables/useTheme'
 
 const open = defineModel<boolean>('open', { default: false })
 
 const { mode, setMode } = useMailLayout()
+const { preference, setPreference } = useTheme()
 
 function pick(next: MailLayoutMode) {
   setMode(next)
+}
+
+function pickTheme(next: ThemePreference) {
+  setPreference(next)
 }
 
 function goAllSettings() {
   open.value = false
   void navigateTo('/settings')
 }
+
+const themeOptions: { id: ThemePreference; label: string; hint: string; icon: typeof Sun }[] = [
+  { id: 'light', label: 'Light', hint: 'Always light', icon: Sun },
+  { id: 'dark', label: 'Dark', hint: 'Always dark', icon: Moon },
+  { id: 'system', label: 'System', hint: 'Match device', icon: Monitor },
+]
 </script>
 
 <template>
@@ -34,7 +46,7 @@ function goAllSettings() {
           Quick settings
         </SheetTitle>
         <SheetDescription class="sr-only">
-          Change mail layout and open full settings
+          Change theme, mail layout, and open full settings
         </SheetDescription>
       </SheetHeader>
 
@@ -46,6 +58,31 @@ function goAllSettings() {
         >
           See all settings
         </button>
+
+        <section class="mb-6">
+          <h3 class="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Theme
+          </h3>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              v-for="opt in themeOptions"
+              :key="opt.id"
+              type="button"
+              class="flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors"
+              :class="preference === opt.id
+                ? 'border-primary bg-primary/5 ring-1 ring-primary/25'
+                : 'border-border hover:bg-muted/40'"
+              @click="pickTheme(opt.id)"
+            >
+              <component
+                :is="opt.icon"
+                class="size-4 text-muted-foreground"
+                :stroke-width="1.75"
+              />
+              <span class="text-xs font-medium">{{ opt.label }}</span>
+            </button>
+          </div>
+        </section>
 
         <section>
           <h3 class="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
