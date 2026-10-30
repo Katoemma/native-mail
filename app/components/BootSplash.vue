@@ -36,9 +36,16 @@ withDefaults(defineProps<{
         </p>
 
         <div
-          class="boot-loader mt-8 sm:mt-10"
+          class="ldr-envelope mt-8 sm:mt-10"
+          style="--ldr-size: 88px; --ldr-color: var(--primary)"
           aria-hidden="true"
-        />
+        >
+          <span class="ldr-envelope-body">
+            <span class="ldr-envelope-letter" />
+            <span class="ldr-envelope-pocket" />
+            <span class="ldr-envelope-flap" />
+          </span>
+        </div>
       </div>
     </div>
 
@@ -76,40 +83,89 @@ withDefaults(defineProps<{
   50% { opacity: 0.88; transform: translateY(-1px); }
 }
 
-.boot-loader {
-  width: 40px;
-  aspect-ratio: 1;
-  color: var(--primary);
+.ldr-envelope {
+  --s: var(--ldr-size, 48px);
+  --c: var(--ldr-color, var(--primary));
   position: relative;
-  background: radial-gradient(10px, currentColor 94%, #0000);
+  width: var(--s);
+  height: var(--s);
 }
-
-.boot-loader::before {
-  content: '';
+.ldr-envelope-body {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(9px at bottom right, #0000 94%, currentColor) top left,
-    radial-gradient(9px at bottom left, #0000 94%, currentColor) top right,
-    radial-gradient(9px at top right, #0000 94%, currentColor) bottom left,
-    radial-gradient(9px at top left, #0000 94%, currentColor) bottom right;
-  background-size: 20px 20px;
-  background-repeat: no-repeat;
-  animation: bootOrb 1.5s infinite cubic-bezier(0.3, 1, 0, 1);
+  left: 8%;
+  right: 8%;
+  bottom: 14%;
+  height: 54%;
+  border-radius: calc(var(--s) / 20);
+  background: color-mix(in srgb, var(--c) 30%, transparent);
+  animation: ldr-envelope-send 2.4s infinite;
 }
-
-@keyframes bootOrb {
-  33% { inset: -10px; transform: rotate(0deg); }
-  66% { inset: -10px; transform: rotate(90deg); }
-  100% { inset: 0; transform: rotate(90deg); }
+.ldr-envelope-letter {
+  position: absolute;
+  z-index: 1;
+  left: 12%;
+  right: 12%;
+  top: 8%;
+  height: 80%;
+  box-sizing: border-box;
+  border: calc(var(--s) / 40) solid var(--c);
+  border-radius: calc(var(--s) / 40);
+  background:
+    repeating-linear-gradient(to bottom, var(--c) 0 calc(var(--s) / 30), transparent 0 calc(var(--s) * 0.08)) 50% 30% / 64% 36% no-repeat,
+    color-mix(in srgb, var(--c) 10%, var(--background, #fff));
+  animation: ldr-envelope-letter 2.4s infinite;
+}
+.ldr-envelope-pocket {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: calc(var(--s) / 20);
+  background: var(--c);
+  clip-path: polygon(0 0, 50% 58%, 100% 0, 100% 100%, 0 100%);
+}
+.ldr-envelope-flap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 62%;
+  background: color-mix(in srgb, var(--c) 72%, #000);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: 50% 0;
+  animation: ldr-envelope-flap 2.4s infinite;
+}
+@keyframes ldr-envelope-letter {
+  0%   { transform: translateY(-70%); opacity: 0; }
+  10%  { transform: translateY(-70%); opacity: 1; animation-timing-function: cubic-bezier(0.5, 0, 0.3, 1); }
+  36%  { transform: translateY(6%); opacity: 1; }
+  58%  { transform: translateY(6%); opacity: 1; }
+  60%  { transform: translateY(6%); opacity: 0; }
+  100% { transform: translateY(-70%); opacity: 0; }
+}
+@keyframes ldr-envelope-flap {
+  0%, 38%   { transform: scaleY(-1); z-index: 0; animation-timing-function: cubic-bezier(0.5, 0, 0.3, 1); }
+  39%       { z-index: 3; }
+  48%, 84%  { transform: scaleY(1); z-index: 3; animation-timing-function: cubic-bezier(0.5, 0, 0.3, 1); }
+  93%, 100% { transform: scaleY(-1); z-index: 0; }
+}
+@keyframes ldr-envelope-send {
+  0%, 50%   { transform: translate(0, 0) rotate(0); }
+  56%       { transform: translate(0, calc(var(--s) * 0.03)) rotate(0); }
+  64%       { transform: translate(calc(var(--s) * 0.04), calc(var(--s) * -0.1)) rotate(-6deg); }
+  74%, 100% { transform: translate(0, 0) rotate(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .boot-logo,
-  .boot-loader::before {
+  .boot-logo {
     animation: none;
+  }
+  .ldr-envelope,
+  .ldr-envelope-body,
+  .ldr-envelope-letter,
+  .ldr-envelope-flap {
+    animation-duration: 3s;
   }
 }
 </style>
+
 
