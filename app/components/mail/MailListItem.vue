@@ -44,9 +44,7 @@ const senderName = computed(() => from.value?.name || from.value?.email || '(unk
       'group/row relative flex w-full min-w-0 cursor-pointer items-center gap-1 border-b px-2 py-2.5 text-left text-sm transition-colors sm:gap-1.5 sm:px-3 sm:py-2',
       active
         ? 'bg-accent text-accent-foreground'
-        : email.isRead
-          ? 'bg-muted/25 hover:bg-muted/50'
-          : 'bg-background hover:bg-muted/40',
+        : 'bg-background hover:bg-muted/40',
       selected && 'bg-primary/8 hover:bg-primary/10',
     ]"
     role="button"
