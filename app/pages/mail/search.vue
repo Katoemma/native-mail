@@ -15,22 +15,14 @@ const threadStore    = useThreadStore()
 const composer       = useComposerStore()
 const route          = useRoute()
 const router         = useRouter()
-const { isList, isSplit } = useMailLayout()
 const { results, total, loading, error } = useSearch()
-// Ensure debounce wiring even if layout mounts after this page
 useDebouncedMailSearch(350)
 
 const selectedId = computed(() => (route.query.id as string) ?? null)
 const q = computed(() => (route.query.q as string) ?? '')
 
-const showListPane = computed(() => {
-  if (isList.value) return !selectedId.value
-  return !selectedId.value
-})
-const showReaderPane = computed(() => {
-  if (isList.value) return !!selectedId.value
-  return true
-})
+const showListPane = computed(() => !selectedId.value)
+const showReaderPane = computed(() => !!selectedId.value)
 
 function selectEmail(id: string) {
   router.push({ path: '/mail/search', query: { q: q.value, id } })
@@ -74,20 +66,16 @@ function handleForward(id: string) {
 </script>
 
 <template>
-  <div class="flex flex-1 overflow-hidden h-full w-full">
-    <!-- Results list: full-width in list mode; mobile-only in split mode -->
+  <div class="flex h-full w-full flex-1 overflow-hidden">
     <div
       v-if="showListPane"
-      :class="[
-        'flex flex-col w-full h-full',
-        isSplit ? 'md:hidden' : 'flex',
-      ]"
+      class="flex h-full w-full flex-col"
     >
-      <div class="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-        <Search class="size-4 text-muted-foreground shrink-0" :stroke-width="1.75" />
+      <div class="flex shrink-0 items-center gap-3 border-b px-4 py-3">
+        <Search class="size-4 shrink-0 text-muted-foreground" :stroke-width="1.75" />
         <div class="min-w-0">
-          <h2 class="font-semibold text-base truncate">Search</h2>
-          <p v-if="q" class="text-xs text-muted-foreground truncate">
+          <h2 class="truncate text-base font-semibold">Search</h2>
+          <p v-if="q" class="truncate text-xs text-muted-foreground">
             “{{ q }}” · {{ total }} result{{ total === 1 ? '' : 's' }}
           </p>
         </div>
@@ -95,24 +83,24 @@ function handleForward(id: string) {
 
       <div v-if="loading && !results.length" class="flex-1 overflow-y-auto">
         <div v-for="i in 6" :key="i" class="flex gap-3 border-b px-4 py-3">
-          <div class="size-10 shrink-0 rounded-full bg-muted animate-pulse" />
+          <div class="size-10 shrink-0 animate-pulse rounded-full bg-muted" />
           <div class="flex-1 space-y-2">
-            <div class="h-3 w-28 rounded bg-muted animate-pulse" />
-            <div class="h-3 w-44 rounded bg-muted animate-pulse" />
+            <div class="h-3 w-28 animate-pulse rounded bg-muted" />
+            <div class="h-3 w-44 animate-pulse rounded bg-muted" />
           </div>
         </div>
       </div>
 
       <div
         v-else-if="error"
-        class="flex-1 flex flex-col items-center justify-center gap-2 text-destructive px-6 text-center"
+        class="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-destructive"
       >
         <p class="text-sm font-medium">{{ error }}</p>
       </div>
 
       <div
         v-else-if="!loading && !results.length"
-        class="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground px-6 text-center"
+        class="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground"
       >
         <Search class="size-8 opacity-40" :stroke-width="1.5" />
         <p class="text-sm">{{ q ? 'No messages found' : 'Search your mail' }}</p>
@@ -134,15 +122,9 @@ function handleForward(id: string) {
       </div>
     </div>
 
-    <!-- Viewer -->
     <div
       v-if="showReaderPane"
-      :class="[
-        'flex flex-col flex-1 overflow-hidden h-full',
-        isList
-          ? 'flex'
-          : (selectedId ? 'flex' : 'hidden md:flex'),
-      ]"
+      class="flex h-full flex-1 flex-col overflow-hidden"
     >
       <MailThread
         v-if="selectedId && showThread && selectedEmail?.threadId"
@@ -161,17 +143,6 @@ function handleForward(id: string) {
         @reply-all="handleReplyAll"
         @forward="handleForward"
       />
-
-      <div
-        v-else-if="isSplit"
-        class="flex flex-1 flex-col items-center justify-center h-full gap-3 text-muted-foreground select-none"
-      >
-        <Search class="size-12 opacity-30" :stroke-width="1.25" />
-        <p class="text-sm font-medium">
-          {{ q ? `${total} result${total === 1 ? '' : 's'} for “${q}”` : 'Search your mail' }}
-        </p>
-        <p class="text-xs">Choose a message from the results on the left</p>
-      </div>
     </div>
   </div>
 </template>

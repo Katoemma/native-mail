@@ -26,8 +26,6 @@ const threadStore    = useThreadStore()
 const composer       = useComposerStore()
 const route          = useRoute()
 const router         = useRouter()
-const { isList, isSplit } = useMailLayout()
-
 const {
   selected: selectedIds,
   count: selectedCount,
@@ -44,17 +42,8 @@ const mailboxSlug = computed(() => route.params.mailbox as string)
 const selectedId  = computed(() => (route.query.id as string) ?? null)
 const isStarredView = computed(() => mailboxSlug.value === STARRED_KEY)
 
-/** Full-width list visible (list mode, or mobile split when nothing selected). */
-const showListPane = computed(() => {
-  if (isList.value) return !selectedId.value
-  return !selectedId.value
-})
-
-/** Reading pane: list mode only when a message is open; split mode always on md+. */
-const showReaderPane = computed(() => {
-  if (isList.value) return !!selectedId.value
-  return true
-})
+const showListPane = computed(() => !selectedId.value)
+const showReaderPane = computed(() => !!selectedId.value)
 
 /** Real mailbox id, or virtual "starred" list key */
 const mailboxId = computed(() => {
@@ -200,13 +189,9 @@ function handleForward(id: string) {
 
 <template>
   <div class="flex flex-1 overflow-hidden h-full w-full">
-    <!-- Message list: full-width in list mode; mobile-only in split mode -->
     <div
       v-if="showListPane"
-      :class="[
-        'flex flex-col w-full h-full',
-        isSplit ? 'md:hidden' : 'flex',
-      ]"
+      class="flex h-full w-full flex-col"
     >
       <div class="flex items-center gap-3 px-4 py-3 border-b shrink-0">
         <template v-if="hasSelection">
@@ -317,15 +302,9 @@ function handleForward(id: string) {
       </div>
     </div>
 
-    <!-- Reading pane -->
     <div
       v-if="showReaderPane"
-      :class="[
-        'flex flex-col flex-1 overflow-hidden h-full',
-        isList
-          ? 'flex'
-          : (selectedId ? 'flex' : 'hidden md:flex'),
-      ]"
+      class="flex h-full flex-1 flex-col overflow-hidden"
     >
       <MailThread
         v-if="selectedId && showThread && selectedEmail?.threadId"
@@ -344,14 +323,6 @@ function handleForward(id: string) {
         @reply-all="handleReplyAll"
         @forward="handleForward"
       />
-
-      <div
-        v-else-if="isSplit"
-        class="flex flex-1 flex-col items-center justify-center h-full gap-3 text-muted-foreground select-none"
-      >
-        <p class="text-sm font-medium">Select a message to read</p>
-        <p class="text-xs">Choose from your {{ mailboxSlug }} on the left</p>
-      </div>
     </div>
 
     <AlertDialog v-model:open="bulkConfirmOpen">

@@ -4,7 +4,7 @@ definePageMeta({
   middleware: ['auth'],
 })
 
-import { Bell, BellOff, LayoutList, PenLine, ShieldAlert, Smartphone } from '@lucide/vue'
+import { Bell, BellOff, PenLine, ShieldAlert, Smartphone } from '@lucide/vue'
 import {
   Avatar,
   AvatarFallback,
@@ -28,8 +28,6 @@ const defaultLogoAbsolute = computed(() => {
 })
 
 const sessionStore = useSessionStore()
-const { mode: mailLayoutMode } = useMailLayout()
-
 const {
   status,
   enabled,
@@ -227,35 +225,6 @@ onMounted(async () => {
           <p class="mt-3 text-sm text-muted-foreground">
             Manage how Native Mail reaches you.
           </p>
-        </div>
-      </section>
-
-      <!-- Display / layout — full controls live in Settings + Quick settings -->
-      <section
-        id="display"
-        class="mb-6 scroll-mt-24 rounded-2xl border p-5 sm:p-6"
-      >
-        <div class="flex items-start gap-4">
-          <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-            <LayoutList class="size-5" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <h2 class="text-base font-semibold tracking-tight">
-              Mail layout
-            </h2>
-            <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Currently using
-              <span class="font-medium text-foreground">{{ mailLayoutMode === 'list' ? 'Default' : 'Split pane' }}</span>.
-              Change it anytime from Settings or the gear icon in the header.
-            </p>
-            <Button
-              variant="outline"
-              class="mt-4"
-              @click="navigateTo('/settings#layout')"
-            >
-              Open layout settings
-            </Button>
-          </div>
         </div>
       </section>
 

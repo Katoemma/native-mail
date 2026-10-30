@@ -10,14 +10,6 @@ import {
   AvatarImage,
 } from '@/components/ui/avatar'
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -41,16 +33,8 @@ const composer = useComposerStore()
 const route = useRoute()
 
 const { ensureEnabled } = useWebPush()
-const { isList } = useMailLayout()
 const { open: onboardingOpen, runBoot } = useInboxOnboarding()
 const quickSettingsOpen = ref(false)
-
-/**
- * Expanded sidebar width:
- * - list → labeled folder nav (Gmail-style; collapses to icon rail)
- * - split → icon rail + message list panel
- */
-const sidebarWidth = computed(() => (isList.value ? '16rem' : '350px'))
 
 const { setupFocusSync } = useSync()
 onMounted(async () => {
@@ -128,7 +112,7 @@ function openCompose() {
 <template>
   <SidebarProvider
     :style="{
-      '--sidebar-width': sidebarWidth,
+      '--sidebar-width': '16rem',
     }"
   >
     <MailOnboardingOverlay :open="onboardingOpen" />
@@ -143,24 +127,6 @@ function openCompose() {
           class="hidden data-[orientation=vertical]:h-4 md:block"
         />
 
-        <!-- Desktop breadcrumb — split mode only when not reading -->
-        <Breadcrumb
-          v-if="!isList && !readingId"
-          class="mr-1 hidden min-w-0 shrink-0 md:block"
-        >
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/mail/inbox">
-                All Inboxes
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem class="min-w-0">
-              <BreadcrumbPage class="truncate">{{ mailboxLabel }}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
         <!-- Reading: subject at start of header -->
         <h1
           v-if="readingId"
@@ -169,11 +135,10 @@ function openCompose() {
           {{ readingSubject }}
         </h1>
 
-        <!-- Search at start (after trigger), not centered -->
+        <!-- Search at start (after trigger) -->
         <form
           v-else
-          class="min-w-0 max-w-xl flex-1"
-          :class="isList ? 'flex' : 'flex md:max-w-md'"
+          class="flex min-w-0 max-w-xl flex-1"
           @submit.prevent="searchNow"
         >
           <div class="relative w-full">

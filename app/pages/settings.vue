@@ -6,25 +6,17 @@ definePageMeta({
 
 import {
   Bell,
-  LayoutList,
   Monitor,
   Moon,
-  PanelsTopLeft,
   PenLine,
   Sun,
   UserRound,
 } from '@lucide/vue'
-import type { MailLayoutMode } from '~/composables/useMailLayout'
 import type { ThemePreference } from '~/composables/useTheme'
 
 useHead({ title: 'Settings · Native Mail' })
 
-const { mode, setMode } = useMailLayout()
 const { preference, setPreference } = useTheme()
-
-function onLayoutPick(next: MailLayoutMode) {
-  setMode(next)
-}
 
 const themeOptions: { id: ThemePreference; label: string; hint: string; icon: typeof Sun }[] = [
   { id: 'light', label: 'Light', hint: 'Always use a light background.', icon: Sun },
@@ -61,7 +53,7 @@ const links = [
         Settings
       </h1>
       <p class="mt-1 text-sm text-muted-foreground">
-        Layout, account, and how Native Mail behaves.
+        Theme, account, and how Native Mail behaves.
       </p>
     </header>
 
@@ -99,59 +91,6 @@ const links = [
                 <span class="block text-sm font-medium">{{ opt.label }}</span>
                 <span class="mt-0.5 block text-xs text-muted-foreground">
                   {{ opt.hint }}
-                </span>
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section
-      id="layout"
-      class="mb-6 scroll-mt-24 rounded-2xl border p-5 sm:p-6"
-    >
-      <div class="flex items-start gap-4">
-        <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-          <LayoutList class="size-5" />
-        </div>
-        <div class="min-w-0 flex-1">
-          <h2 class="text-base font-semibold tracking-tight">
-            Inbox layout
-          </h2>
-          <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Choose how mail is arranged on desktop. Mobile always uses a full-width list.
-          </p>
-          <div class="mt-4 grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              class="flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors"
-              :class="mode === 'list'
-                ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                : 'border-border hover:bg-muted/40'"
-              @click="onLayoutPick('list')"
-            >
-              <LayoutList class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <span>
-                <span class="block text-sm font-medium">Default</span>
-                <span class="mt-0.5 block text-xs text-muted-foreground">
-                  Full-width inbox; open a message to read.
-                </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              class="flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors"
-              :class="mode === 'split'
-                ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                : 'border-border hover:bg-muted/40'"
-              @click="onLayoutPick('split')"
-            >
-              <PanelsTopLeft class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <span>
-                <span class="block text-sm font-medium">Split pane</span>
-                <span class="mt-0.5 block text-xs text-muted-foreground">
-                  List beside the reading pane.
                 </span>
               </span>
             </button>
