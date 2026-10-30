@@ -36,10 +36,10 @@ withDefaults(defineProps<{
         </p>
 
         <div
-          class="boot-track mt-7 h-px w-28 overflow-hidden bg-border sm:mt-8 sm:w-32"
+          class="boot-track mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-muted sm:mt-10 sm:h-2 sm:w-56"
           aria-hidden="true"
         >
-          <div class="boot-bar h-full bg-primary" />
+          <div class="boot-bar h-full rounded-full bg-primary" />
         </div>
       </div>
     </div>
