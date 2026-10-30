@@ -3,7 +3,6 @@ import { LogOut, BadgeCheck, Bell, Search, Settings, SquarePen } from '@lucide/v
 import AppSidebar from '@/components/AppSidebar.vue'
 import MailCompose from '@/components/mail/MailCompose.vue'
 import MailOnboardingOverlay from '@/components/mail/MailOnboardingOverlay.vue'
-import MailQuickSettings from '@/components/mail/MailQuickSettings.vue'
 import {
   Avatar,
   AvatarFallback,
@@ -34,7 +33,6 @@ const route = useRoute()
 
 const { ensureEnabled } = useWebPush()
 const { open: onboardingOpen, runBoot } = useInboxOnboarding()
-const quickSettingsOpen = ref(false)
 
 const { setupFocusSync } = useSync()
 onMounted(async () => {
@@ -116,7 +114,6 @@ function openCompose() {
     }"
   >
     <MailOnboardingOverlay :open="onboardingOpen" />
-    <MailQuickSettings v-model:open="quickSettingsOpen" />
     <AppSidebar />
 
     <SidebarInset class="flex flex-col overflow-hidden h-svh">
@@ -163,7 +160,7 @@ function openCompose() {
             type="button"
             class="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-11"
             aria-label="Settings"
-            @click="quickSettingsOpen = true"
+            @click="navigateTo('/settings')"
           >
             <Settings class="size-6" :stroke-width="1.75" />
           </button>
